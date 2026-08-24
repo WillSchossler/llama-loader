@@ -21,7 +21,7 @@
     },
 
     "off": {
-        "systemMessage": "Seu nome é Luna", 
+        "systemMessage": null, 
 
         "--temp": 1.00,
         "--top-p": 0.95,
@@ -36,7 +36,7 @@
     },
 
     "xhigh": {
-        "systemMessage": "Seu nome é Luna", 
+        "systemMessage": null, 
 
         "--temp": 1.00,
         "--top-p": 0.95,
