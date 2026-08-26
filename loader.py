@@ -2,7 +2,7 @@ import json
 import argparse
 import subprocess
 from pathlib import Path
-
+ROOT = Path(__file__).parent
 
 class Model:
     """ Stores the model data """
@@ -11,6 +11,7 @@ class Model:
         self.parent = parent
         self.profiles_json = profiles_json
         self.llamaui_json = llamaui_json.copy()
+        
 
         self.name = model["name"]
         self.alias = model["alias"]
@@ -49,31 +50,33 @@ class Model:
         for parameter, value in parameters.items():
             command.append(parameter)
             if value != "":
-                command.append(value)
+                command.append(str(value))
         
         return command
 
 
 
 class Loader:
-    def __init__(self, arguments: dict):
+    def __init__(self):
         self.models = {}
-        self.configs = json.load(Path("configs.json").open("r", encoding='utf-8'))
+        self.configs = json.load((ROOT / Path("configs.json")).open("r", encoding='utf-8'))
         
-        self.__load_models()
-    
-        match arguments.command:
-            case "list":
-                self.list()
-            case "edit":
-                self.edit(arguments.object)
-            case "start":
-                self.start(arguments.model, arguments.llamaargs, arguments.b, arguments.i)
+        models_path = Path(self.configs["models_paths"])
+        json_paths = models_path.rglob("*.json")
+
+        profiles_json = json.load((ROOT / Path(self.configs["profiles_path"])).open("r", encoding='utf-8')) 
+        llamaui_json = json.load((ROOT / Path(self.configs["llamaui_path"])).open("r", encoding='utf-8'))
+
+        for json_path in json_paths:
+            model_json = json.load(json_path.open("r", encoding='utf-8'))
+            if {"name", "files", "alias"} <= model_json.keys():
+                self.models[model_json["alias"]] = Model(model_json, json_path, json_path.parent, profiles_json, llamaui_json)
             
 
-    def start(self, model:str, llamaargs: list = [], b: bool = False, i: bool = False):
+    def start(self, model:str, llamaargs: list | None = None, b: bool = False, i: bool = False):
 
         def args_to_dict(args: list[str]) -> dict[str, str]:
+            
             
             def is_flag(value: str) -> bool:
                 if not value.startswith("-"):
@@ -108,19 +111,24 @@ class Loader:
 
 
         model = self.models[model]
-        print(model.arguments)
 
-        #arguments = model.arguments
-        #arguments.update(args_to_dict(llamaargs))
+        arguments = model.arguments.copy()
+        arguments.update(args_to_dict(llamaargs))
 
-        #command = model.convert(arguments)        
-        #print(command)
-        
-        #subprocess.Popen(command)
-        
+        command = model.convert(arguments)                
+
         if b:
             self._open_browser(model, i)
 
+        process = subprocess.Popen(command)
+
+        try:
+            process.wait()
+        except KeyboardInterrupt:
+            print("\nEncerrando servidor...")
+            process.terminate()
+            process.wait()
+        
 
     def list(self):
         for alias, modelo in self.models.items():
@@ -128,8 +136,19 @@ class Loader:
 
 
     def edit(self, objeto: str):
-        path = Path(f"{objeto}.json") if objeto in ("configs", "profiles", "llamaui") else self.models[objeto].path
+        path = ROOT / Path(f"{objeto}.json") if objeto in ("configs", "profiles", "llamaui") else self.models[objeto].path
         subprocess.Popen(["code.cmd", path])
+
+
+    def run(self, arguments):
+        match arguments.command:
+            case "list":
+                self.list()
+            case "edit":
+                self.edit(arguments.object)
+            case "start":
+                self.start(arguments.model, arguments.llamaargs, arguments.b, arguments.i)
+
 
 
     def _open_browser(self, model: Model, incognito: bool = False):        
@@ -143,18 +162,7 @@ class Loader:
             
         subprocess.Popen(command)
 
-
-    def __load_models(self):
-        models_path = Path(self.configs["models_paths"])
-        json_paths = models_path.rglob("*.json")
-
-        profiles_json = json.load(Path(self.configs["profiles_path"]).open("r", encoding='utf-8')) 
-        llamaui_json = json.load(Path(self.configs["llamaui_path"]).open("r", encoding='utf-8'))
-
-        for json_path in json_paths:
-            model_json = json.load(json_path.open("r", encoding='utf-8'))
-            if {"name", "files", "alias"} <= model_json.keys():
-                self.models[model_json["alias"]] = Model(model_json, json_path, json_path.parent, profiles_json, llamaui_json)
+        
 
 
 
@@ -180,6 +188,11 @@ class Argparser:
         self.start_parser.add_argument("llamaargs", nargs=argparse.REMAINDER, help="Aditional llama.cpp flags.")
 
 
+if __name__ == '__main__':
+    argparser = Argparser()
+    args = argparser.parser.parse_args()
+    
+    loader = Loader()
+    loader.run(args)
+    
 
-argparser = Argparser()
-loader = Loader(argparser.parser.parse_args())
