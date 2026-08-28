@@ -1,13 +1,13 @@
-# Profile's toml. Create here your profiles with any llama.cpp flags you want. 
+# Profiles TOML. Create here your profiles with any llama.cpp flags. 
 # Just keep in mind that those will be replaced by the model's parameters if possible.
 
 
-# The default flags used in EVERY model!  Keep here what is mostly unchanged.
-# If you need to set something specific, use the model's toml, or even the profiles bellow.
+# The flags used by default in very model! Keep here what is mostly unchanged.
+# If you need to set something specific, use the model's own TOML, or create a profiles bellow.
 [default]
---fit = "on"
+--fit = "on"              # For default flags, only set the key and the value.
 
---jinja = ""
+--jinja = ""              # For flags without value, just use an empty string.
 --kv-unified = ""
 --flash-attn = "on"
 
@@ -25,7 +25,7 @@
 --ctx-checkpoints = 2
 
 
-#  An example of profile, with sampling and flags set.
+#  An example of working profile, with sampling and flags set.
 [off]
 --temp = 1.00
 --top-p = 0.95
@@ -47,7 +47,7 @@
 --repeat-penalty = 1.1
 
 
-# A Qwen3.8 27B's extra high reasoning
+# Qwen3.8 27B's extra high reasoning
 [xhigh]
 --temp = 1.00
 --top-p = 0.95
