@@ -1,0 +1,26 @@
+# Gemma's example TOML
+
+
+# Name of the model.
+name = "Gemma4-12B"   
+
+# A nickname used to identify the model. This is the reference to start the server and it's very important.
+alias = "gemma"       
+
+# Default model's profile. If you don't have a profile, just set it to "default" or create a new one in the "profiles.toml".
+profile = "off"       
+
+
+# Your model's files location. Use relative paths. I strongly recommend to keep everything in the same folder.
+[files]   
+--model = "Gemma4-12B-QAT-Dense-Uncensored-Q4_K_M.gguf"   
+--mmproj = "Gemma4-12B-mmproj-BF16.gguf"                  
+--model-draft = "Gemma4-12B-MTP-Q8_0.gguf"
+--chat-template-file = "Gemma4-12B-Template.jinja"
+# IF YOU DON'T NEED A FILE (FOR EXAMPLE, THE MMPROJ) JUST CLEAR THE KEY AND THE VALUE!
+
+
+# A list of llama.cpp valid flags. The keys insert here have absolute priority.
+[parameters]
+--spec-type = "draft-mtp"
+--no-prefill-assistant = ""

@@ -1,0 +1,14 @@
+# Configuration file. This is a working example
+
+
+# Absolute path for the. The search is recursive, so I suggest you to organize your models with as many folders you 
+models_paths =  "F:/AI/LLMs"
+
+# The command used to open your harness
+harness = "opencode"
+
+# Comand to open Your file editor. I recommend VS Code (don't forget the sufix "cmd")
+editor = "code.cmd"
+
+# The path to your browser's executable file.
+browser_path = "C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe"

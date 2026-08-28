@@ -1,4 +1,4 @@
-import json
+import tomllib
 import argparse
 import subprocess
 from pathlib import Path
@@ -23,7 +23,7 @@ class Argparser:
 
 
         self.show_parser = self.subparser.add_parser("show")
-        self.show_parser.add_argument("object", help="TODO")
+        self.show_parser.add_argument("target", help="TODO")
         self.show_parser.add_argument("profile", nargs="?", help="TODO")
 
 
@@ -60,6 +60,9 @@ class Argparser:
             while i < len(args):
                 key = args[i]
 
+                if not key.startswith("-"):
+                    raise ValueError(f"{key} is not a valid llama.cpp flag.")
+
                 if i + 1 >= len(args):
                     result[key] = ""
                     break
@@ -79,7 +82,7 @@ class Argparser:
 
 class Model:
     """ Stores model data """
-    def __init__(self, model: dict, path: Path, parent: Path, profiles_json: dict):
+    def __init__(self, model: dict, path: Path, parent: Path, profiles_toml: dict):
         self.path = path
         self.parent = parent
         self.name = model["name"]
@@ -89,15 +92,14 @@ class Model:
         
 
         self.files = {}        
-        for (file, path) in model["files"].items():
-            if path is not None:
-                self.files[file] = str(parent / path)
+        for file, path in model["files"].items():
+            self.files[file] = str(parent / path)
 
 
         self.arguments = {}
         for argument in [
-            profiles_json["defaults"],
-            profiles_json[self.profile],
+            profiles_toml["default"],
+            profiles_toml[self.profile],
             self.parameters,
             self.files
             ]:
@@ -105,10 +107,10 @@ class Model:
             self.arguments.update(argument)         
 
 
-    def build_command(self) -> list:
+    def build_command(self) -> list[str]:
         """ Build a valid Popen list to start a llama.cpp using the model's self arguments  """
         command = ["llama-server"]
-        for parameter, value in self.parameters.items():
+        for parameter, value in self.arguments.items():
             command.append(parameter)
             if value != "":
                 command.append(str(value))
@@ -121,21 +123,22 @@ class Loader:
     def __init__(self, args: argparse.Namespace):
         self.models = {}  # Dictionary with the models available 
         self.args = args  # Arguments from the argparser
-        self.configs = json.load((ROOT / Path("configs.json")).open("r", encoding='utf-8'))
-        self.profiles_json = json.load((ROOT / Path("profiles.json")).open("r", encoding='utf-8')) 
+        self.configs = tomllib.load((ROOT / "configs.toml").open("rb"))        
+        self.profiles = tomllib.load((ROOT / "profiles.toml").open("rb")) 
         
 
         models_path = Path(self.configs["models_paths"])
-        json_paths = models_path.rglob("*.json")
+        toml_paths = models_path.rglob("*.toml")
 
-        for json_path in json_paths:  # Construction of the models dictionary
-            model_json = json.load(json_path.open("r", encoding='utf-8'))
-            if {"name", "files", "alias"} <= model_json.keys():
-                self.models[model_json["alias"]] = Model(model_json, json_path, json_path.parent, self.profiles_json)
+        for toml_path in toml_paths:  # Construction of the models dictionary
+            model_toml = tomllib.load(toml_path.open("rb"))
+            if {"name", "files", "alias"} <= model_toml.keys():
+                self.models[model_toml["alias"]] = Model(model_toml, toml_path, toml_path.parent, self.profiles)
 
 
     def start(self, model:str, llamaargs: list | None = None, b: bool = False, i: bool = False, a: bool = False):
-        assert model in self.models.keys(), ("Not a valid model.")  # Assert that the model alias is valid
+        if model not in self.models:  # Test if the model is known
+            raise ValueError(f"Unknown model: {model}.")
 
         model = self.models[model]  # Grabs the correct model
         arguments = model.arguments # And its arguments mutable
@@ -143,20 +146,20 @@ class Loader:
         if llamaargs:  # If there are available flags
             profile_arg = llamaargs[0]  # collect the first one
         
-            if profile_arg in self.profiles_json.keys():  # If the first flag is a profile name
+            if profile_arg in self.profiles:  # If the first flag is a profile name
                 llamaargs.pop(0)  # IF IT'S A FLAG WE POP IT! WE NEED THIS LIST TO CONTAIN ONLY llama.cpp flags! We POP directly the mutable, it's not a bug, it's a feature
                 
-                profile_json = self.profiles_json[profile_arg]  # Create a copy of the profile
-                arguments.update(profile_json)  # Update the arguments with the profile selected by the user
+                profile_toml = self.profiles[profile_arg]  # Create a copy of the profile
+                arguments.update(profile_toml)  # Update the arguments with the profile selected by the user
             
             elif not profile_arg.startswith("-"):
-                raise NameError("Not a valid profile or llama.cpp.")
-                
+                raise ValueError(f"{profile_arg} is not a valid profile or llama.cpp flag.")
+
+
             flags_dict = Argparser.args_to_dict(llamaargs)  # Create a dictionary with the llama.cpp flags
-            arguments.update(flags_dict)  # Update the model's arguments
+            arguments.update(flags_dict)  # Than update the model's arguments
                 
         command = model.build_command()  # Create a Popen command with everything! Note that, it just updates if the user insert flags or select a profile
-
 
         if b or i:  # Check if the browser or incognito flag is set
             self.open_browser(arguments, i)  # If it is, then open the browser. NOTE: The llama-ui WAITS for the model to load, this is not a BUG!
@@ -168,7 +171,7 @@ class Loader:
         process = subprocess.Popen(command)
 
         try:
-            process.wait()  # Waits for the process
+            process.wait()
         except KeyboardInterrupt:  # If the user uses CTRL + C
                 print("\nClosing the server...")
                 process.terminate()
@@ -179,62 +182,67 @@ class Loader:
         if models:
             print("\nModels:")
             for alias, modelo in self.models.items():
-                print(f"{modelo.name}, alias: {modelo.alias}, profile: {modelo.profile},  path: {modelo.parent}")
+                print(f"alias: {modelo.alias:<10}||  name: {modelo.name:<25}||  profile: {modelo.profile:>10}  ||   path: {str(modelo.parent):<70}")
 
         elif profiles:
             print("\nProfiles:")
-            for profile in self.profiles_json.keys():
-                if profile != "defaults":
+            for profile in self.profiles.keys():
+                if profile != "default":
                     print(profile)
 
         else:
             print("\nModels:")
             for alias, modelo in self.models.items():
-                print(f"{modelo.name}, alias: {modelo.alias}, profile: {modelo.profile},  path: {modelo.parent}")
+                print(f"alias: {modelo.alias:<10}||  name: {modelo.name:<25}||  profile: {modelo.profile:>10}  ||   path: {str(modelo.parent):<70}")
 
             print("\nProfiles:")
-            for profile in self.profiles_json.keys():
-                if profile != "defaults":
+            for profile in self.profiles.keys():
+                if profile != "default":
                     print(profile)
 
 
     def edit(self, file: str):
         if file in ("configs", "profiles"):
-            path = ROOT / Path(f"{file}.json")
+            path = ROOT / Path(f"{file}.toml")
 
-        elif file in self.models.keys():
+        elif file in self.models:
             path = self.models[file].path
 
         else:
-            raise NameError("Not a file or model to edit.")
+            raise ValueError(f"{file} is not a valid model or file.")
 
         if path.is_file():
             subprocess.Popen([self.configs["editor"], path])
         else:
-            raise NameError("File doesn't exists")
+            raise FileNotFoundError(f"{file} doesn't exists.")
 
 
-    def show(self, object: str, profile: str = None):
-        if object in self.profiles_json.keys():
-            for (key, value) in self.profiles_json[object].items():
-                if value:
+    def show(self, target: str, profile: str | None = None):
+        if target in self.profiles.keys():
+            for (key, value) in self.profiles[target].items():
+                if value != "":
                     print(f"{key}: {value}")
                 else:
                     print(key)
 
-        elif object in self.models.keys():
-            model = self.models[object]
+        elif target in self.models:
+            model = self.models[target]
+            arguments = model.arguments.copy()
 
             if profile:
-                model.arguments.update(self.profiles_json[profile])
+                if profile not in self.profiles:
+                    raise ValueError(f"Unknown profile: {profile}")
+                else:
+                    arguments.update(self.profiles[profile])                
 
-            for (key, value) in model.arguments.items():
-                if value:
+            for (key, value) in arguments.items():
+                if value != "":
                     print(f"{key}: {value}")
                 else:
                     print(key)
+
         else:
-            raise NameError("Not a model or profile.")
+            raise ValueError(f"{target} is not a valid model or profile.")
 
 
     def run(self):
@@ -244,7 +252,7 @@ class Loader:
             case "edit":
                 self.edit(self.args.file)
             case "show":
-                self.show(self.args.object, self.args.profile)
+                self.show(self.args.target, self.args.profile)
             case "start":
                 self.start(self.args.model, self.args.llamaargs, self.args.b, self.args.i, self.args.a)
 
