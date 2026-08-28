@@ -1,4 +1,6 @@
 {
+    "harness": "opencode",
+    "editor": "code.cmd", 
     "models_paths": "F:/AI/LLMs",
     "browser_path": "C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe"
 }
