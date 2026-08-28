@@ -82,29 +82,33 @@ class Argparser:
 
 class Model:
     """ Stores model data """
-    def __init__(self, model: dict, path: Path, parent: Path, profiles_toml: dict):
+    def __init__(self, model: dict, path: Path, parent: Path, profiles: dict):
         self.path = path
         self.parent = parent
+        self.profiles = profiles
         self.name = model["name"]
         self.alias = model["alias"]
         self.profile = model["profile"]
         self.parameters = model["parameters"]
-        
 
-        self.files = {}        
-        for file, path in model["files"].items():
-            self.files[file] = str(parent / path)
-
+        self.files = {file: str(parent / path) for (file, path) in model["files"].items()}        
 
         self.arguments = {}
+        self.build_arguments(self.profiles[self.profile])
+
+
+    def build_arguments(self, profile: dict):
+        """ Builds the correct arguments dict, given a specific profile """
+        self.arguments.clear()
+
         for argument in [
-            profiles_toml["default"],
-            profiles_toml[self.profile],
+            self.profiles["default"],
+            profile,
             self.parameters,
             self.files
             ]:
             
-            self.arguments.update(argument)         
+            self.arguments.update(argument) 
 
 
     def build_command(self) -> list[str]:
@@ -132,7 +136,7 @@ class Loader:
 
         for toml_path in toml_paths:  # Construction of the models dictionary
             model_toml = tomllib.load(toml_path.open("rb"))
-            if {"name", "files", "alias"} <= model_toml.keys():
+            if {"name", "files", "alias", "profile", "parameters"} <= model_toml.keys():
                 self.models[model_toml["alias"]] = Model(model_toml, toml_path, toml_path.parent, self.profiles)
 
 
@@ -140,29 +144,31 @@ class Loader:
         if model not in self.models:  # Test if the model is known
             raise ValueError(f"Unknown model: {model}.")
 
+
         model = self.models[model]  # Grabs the correct model
-        arguments = model.arguments # And its arguments mutable
+
 
         if llamaargs:  # If there are available flags
             profile_arg = llamaargs[0]  # collect the first one
         
+
             if profile_arg in self.profiles:  # If the first flag is a profile name
                 llamaargs.pop(0)  # IF IT'S A FLAG WE POP IT! WE NEED THIS LIST TO CONTAIN ONLY llama.cpp flags! We POP directly the mutable, it's not a bug, it's a feature
                 
-                profile_toml = self.profiles[profile_arg]  # Create a copy of the profile
-                arguments.update(profile_toml)  # Update the arguments with the profile selected by the user
+                new_profile = self.profiles[profile_arg]  # Catch the correct new profile
+                model.build_arguments(new_profile)  # Update the arguments with the profile selected by the user
             
+
             elif not profile_arg.startswith("-"):
                 raise ValueError(f"{profile_arg} is not a valid profile or llama.cpp flag.")
 
-
             flags_dict = Argparser.args_to_dict(llamaargs)  # Create a dictionary with the llama.cpp flags
-            arguments.update(flags_dict)  # Than update the model's arguments
-                
+            model.arguments.update(flags_dict)  # Updates the model with the CLI flags
+
         command = model.build_command()  # Create a Popen command with everything! Note that, it just updates if the user insert flags or select a profile
 
         if b or i:  # Check if the browser or incognito flag is set
-            self.open_browser(arguments, i)  # If it is, then open the browser. NOTE: The llama-ui WAITS for the model to load, this is not a BUG!
+            self.open_browser(model.arguments, i)  # If it is, then open the browser. NOTE: The llama-ui WAITS for the model to load, this is not a BUG!
         elif a:
             subprocess.Popen([self.configs["harness"], Path.cwd()])
 
@@ -227,15 +233,15 @@ class Loader:
 
         elif target in self.models:
             model = self.models[target]
-            arguments = model.arguments.copy()
 
             if profile:
                 if profile not in self.profiles:
                     raise ValueError(f"Unknown profile: {profile}")
-                else:
-                    arguments.update(self.profiles[profile])                
 
-            for (key, value) in arguments.items():
+                else:
+                    model.build_arguments(self.profiles[profile])                
+
+            for (key, value) in model.arguments.items():
                 if value != "":
                     print(f"{key}: {value}")
                 else:
