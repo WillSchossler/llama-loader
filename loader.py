@@ -149,7 +149,8 @@ class Loader:
 
 
         if llamaargs:  # If there are available flags
-            profile_arg = llamaargs[0]  # collect the first one
+            llamaargs = llamaargs.copy()  # Make a copy of the list to prevent errors 
+            profile_arg = llamaargs[0]    # Collect the first one
         
 
             if profile_arg in self.profiles:  # If the first flag is a profile name
