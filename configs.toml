@@ -1,14 +1,17 @@
-# Configuration file. This is a working example.
+# Configurations file. 
 
 
 # The absolute path where your models are stored. The search is recursive, so pick the root folder. 
-models_paths =  "F:/AI/LLMs"
+root =  "F:/AI/LLMs"
 
-# The command used to open your harness. This will be passed to the subprocess.Popen() before the cwd().
-harness = "opencode"
 
 # The command to open Your file editor. I recommend VS Code (don't forget the sufix ".cmd" in windows).
 editor = "code.cmd"
 
-# The path to your browser's executable file.
+
+# The command used to open your harness. This will be passed to the subprocess.Popen() before the cwd().  (OPTIONAL: Delete if you don't want a harness)
+harness = "opencode"
+
+
+# The path to your browser's executable file.  (OPTIONAL: Delete if you don't want to automatically open the browser)
 browser_path = "C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe"

@@ -1,41 +1,40 @@
 # Profiles TOML. Create here your profiles with any llama.cpp flags. 
-# Just keep in mind that those will be replaced by the model's parameters if possible.
 
 
-# The flags used by default in very model! Keep here what is mostly unchanged.
-# If you need to set something specific, use the model's own TOML, or create a profiles bellow.
+# The flags used by default in every model! Keep here what is mostly unchanged.
+# If you need to set something specific, use the model's own TOML, or create a profile bellow.
 [default]
 --fit = "on"              # For default flags, only set the key and the value.
-
---jinja = ""              # For flags without value, just use an empty string.
+--agent = ""              # For flags without value, just use an empty string.
+--jinja = ""              
 --kv-unified = ""
 --flash-attn = "on"
 
---port = 9931
---host = "127.0.0.1"
---sleep-idle-seconds = 900
+--no-mmproj-offload = ""
+--spec-type = "ngram-mod"
+--cache-type-k = "q8_0"
+--cache-type-v = "q8_0"
 
 --threads = 8
 --parallel = 1
 --verbosity = 3
 
---tools = "all"
---ui-mcp-proxy = ""
---cors-origins = "localhost"
+--port = 9931
+--host = "127.0.0.1"
 --ctx-checkpoints = 2
+--sleep-idle-seconds = 900
 
 
 #  An example of working profile, with sampling and flags set.
 [off]
 --temp = 1.00
 --top-p = 0.95
---top-k = 64
+--top-k = 20
 --min-p = 0.05
+--repeat-penalty = 1.0
 --presence-penalty = 0.0
---repeat-penalty = 1.1
 
 --reasoning = "off"
---reasoning-effort = "low"
 
 
 #  Gemma's Uncensored sampling
@@ -47,14 +46,15 @@
 --repeat-penalty = 1.1
 
 
+
 # Qwen3.8 27B's extra high reasoning
 [xhigh]
 --temp = 1.00
 --top-p = 0.95
 --top-k = 20
 --min-p = 0.0
---presence-penalty = 0.0
 --repeat-penalty = 1.0
+--presence-penalty = 0.0
 
 --reasoning = "on"
 --reasoning-preserve = ""

@@ -7,44 +7,52 @@ ROOT = Path(__file__).resolve().parent
 
 
 class Argparser:
+    """ TODO: Describe the class """
     def __init__(self):
+        # First definitions used to create the arguments
         self.parser = argparse.ArgumentParser(description="TODO", prog="llama-loader")
         self.subparser = self.parser.add_subparsers(dest="command", required=True, help="TODO")
 
 
+        # Create a draft .toml in the CWD. The result .toml will be filled if the files in the folder are appropriately named
+        self.init_parser = self.subparser.add_parser("init")
+
+
+        # Edit the model's TOML file. Use the "editor" set in configs.toml to open the file
+        self.edit_parser = self.subparser.add_parser("edit")
+        self.edit_parser.add_argument("file", help="TODO")
+
+
+        # Show model's parameters. Pick a model or use the option "profile" flag to show the final result
+        self.show_parser = self.subparser.add_parser("show")
+        self.show_parser.add_argument("target", help="TODO")
+        self.show_parser.add_argument("profile", nargs="?", help="TODO")
+
+
+        # List models and/or profiles. Choose between "-m" or "-p" optional flags to filter the result
         self.list_parser = self.subparser.add_parser("list")
         list_group = self.list_parser.add_mutually_exclusive_group()
         list_group.add_argument("--models", "-m", action="store_true", help="TODO")
         list_group.add_argument("--profiles", "-p", action="store_true", help="TODO")
 
 
-        self.edit_parser = self.subparser.add_parser("edit")
-        self.edit_parser.add_argument("file", help="TODO")
-
-
-        self.show_parser = self.subparser.add_parser("show")
-        self.show_parser.add_argument("target", help="TODO")
-        self.show_parser.add_argument("profile", nargs="?", help="TODO")
-
-
+        # Start the llama.cpp server.
         self.start_parser = self.subparser.add_parser("start")
-        self.start_parser.add_argument("model", help="TODO")
+        self.start_parser.add_argument("model", help="TODO")        
+        # Use the optional flags "-b", "-i" or "-a" BEFORE  <model> to open the browser normally, incognito, or start the harness
         start_group = self.start_parser.add_mutually_exclusive_group()
         start_group.add_argument("-b", action='store_true', help="TODO")
         start_group.add_argument("-i", action='store_true', help="TODO")
         start_group.add_argument("-a", action='store_true', help="TODO")
+        # You can choose a profile after the <model> and/or pick as many llama.cpp flags as you want. Those have maximum priority
         self.start_parser.add_argument("llamaargs", nargs=argparse.REMAINDER, help="TODO")
-
-
-    def parse(self) -> argparse.Namespace:
-        return self.parser.parse_args()
 
 
     @staticmethod
     def args_to_dict(args: list[str]) -> dict[str, str]:
-            """ Converts a list of llama.cpp arguments to a valid dictionary with keys and values. """
+            """ Converts the "llamaargs" list into a valid dictionary. Flags without value will produce a {flag: ""} item  """
             def is_flag(value: str) -> bool:
-                """ Auxiliary parser used to check if the argument is a flag or not """
+                """ Auxiliary parser used to check if the argument is a flag or a value """
                 if not value.startswith("-"):
                     return False
 
@@ -87,7 +95,6 @@ class Model:
         self.parent = parent
         self.profiles = profiles
         self.name = model["name"]
-        self.alias = model["alias"]
         self.profile = model["profile"]
         self.parameters = model["parameters"]
 
@@ -124,20 +131,30 @@ class Model:
 
 
 class Loader:
+    """ TODO: Describe the class """
     def __init__(self, args: argparse.Namespace):
-        self.models = {}  # Dictionary with the models available 
-        self.args = args  # Arguments from the argparser
-        self.configs = tomllib.load((ROOT / "configs.toml").open("rb"))        
-        self.profiles = tomllib.load((ROOT / "profiles.toml").open("rb")) 
-        
+        self.models = {}  # Keeps models in a dict {name: Model}
+        self.args = args  # Arguments collected from the argparser
+        self.configs = Configs(ROOT / "configs.toml")    # Configurations set in the configs.toml       
+        self.profiles = tomllib.load((ROOT / "profiles.toml").open("rb"))  # Profiles defined by the user
 
-        models_path = Path(self.configs["models_paths"])
-        toml_paths = models_path.rglob("*.toml")
 
-        for toml_path in toml_paths:  # Construction of the models dictionary
+        # Populate self.models dictionary. Looks for any ".toml" file in the root set in the configs.toml 
+        models_root = Path(self.configs.root)
+        toml_paths = models_root.rglob("*.toml")
+        required_fields = {"name", "files", "profile", "parameters"}
+
+        for toml_path in toml_paths:
             model_toml = tomllib.load(toml_path.open("rb"))
-            if {"name", "files", "alias", "profile", "parameters"} <= model_toml.keys():
-                self.models[model_toml["alias"]] = Model(model_toml, toml_path, toml_path.parent, self.profiles)
+            
+            # Will consider a valid model ONLY if the .toml have a name, file, profile and parameter set
+            if required_fields <= model_toml.keys():
+                name = model_toml["name"]
+                
+                if name in self.models:  # Validation for the duplicate "name" case
+                    raise ValueError(f'Invalid model at "{toml_path}". The name "{name}" already exists.')                
+                else:
+                    self.models[model_toml["name"]] = Model(model_toml, toml_path, toml_path.parent, self.profiles)
 
 
     def start(self, model:str, llamaargs: list | None = None, b: bool = False, i: bool = False, a: bool = False):
@@ -169,9 +186,9 @@ class Loader:
         command = model.build_command()  # Create a Popen command with everything! Note that, it just updates if the user insert flags or select a profile
 
         if b or i:  # Check if the browser or incognito flag is set
-            self.open_browser(model.arguments, i)  # If it is, then open the browser. NOTE: The llama-ui WAITS for the model to load, this is not a BUG!
+            self.open_browser(model.arguments["host"], model.arguments["port"], i)  # If it is, then open the browser. NOTE: The llama-ui WAITS for the model to load, this is not a BUG!
         elif a:
-            subprocess.Popen([self.configs["harness"], Path.cwd()])
+            subprocess.Popen([self.configs.harness, Path.cwd()])
 
 
         # Just start the server with the command we just made
@@ -188,8 +205,8 @@ class Loader:
     def list(self, models: bool, profiles: bool):
         if models:
             print("\nModels:")
-            for alias, modelo in self.models.items():
-                print(f"alias: {modelo.alias:<10}||  name: {modelo.name:<25}||  profile: {modelo.profile:>10}  ||   path: {str(modelo.parent):<70}")
+            for name, model in self.models.items():
+                print(f"Name: {model.name:<10}||  Profile: {model.profile:>10}  ||   Path: {str(model.parent.resolve()):<70}")
 
         elif profiles:
             print("\nProfiles:")
@@ -199,8 +216,8 @@ class Loader:
 
         else:
             print("\nModels:")
-            for alias, modelo in self.models.items():
-                print(f"alias: {modelo.alias:<10}||  name: {modelo.name:<25}||  profile: {modelo.profile:>10}  ||   path: {str(modelo.parent):<70}")
+            for name, model in self.models.items():
+                print(f"Name: {model.name:<10}||  Profile: {model.profile:>10}  ||   Path: {str(model.parent.resolve()):<70}")
 
             print("\nProfiles:")
             for profile in self.profiles.keys():
@@ -219,7 +236,7 @@ class Loader:
             raise ValueError(f"{file} is not a valid model or file.")
 
         if path.is_file():
-            subprocess.Popen([self.configs["editor"], path])
+            subprocess.Popen([self.configs.editor, path])
         else:
             raise FileNotFoundError(f"{file} doesn't exists.")
 
@@ -264,9 +281,10 @@ class Loader:
                 self.start(self.args.model, self.args.llamaargs, self.args.b, self.args.i, self.args.a)
 
 
-    def open_browser(self, arguments: dict, incognito: bool = False):        
+    def open_browser(self, host="127.0.0", port="9993", incognito: bool = False) -> None:
+        """ Opens the browser set in configs.toml. You can chose to open in incognito """        
         command = [
-            Path(self.configs["browser_path"]),
+            Path(self.configs.browser_path),
             "--start-maximized",
             f"http://{arguments["--host"]}:{arguments["--port"]}"
             ]
@@ -277,8 +295,82 @@ class Loader:
         
 
 
-if __name__ == '__main__':
-    argparser = Argparser()    
-    loader = Loader(argparser.parse())
+class Configs:
+    """ TODO: Describe class """
+    def __init__(self, path: Path):        
+        # Loads the file and validate
+        with path.open("rb") as file:
+            data = tomllib.load(file)        
 
-    loader.run()
+        fields = {
+            "root": {
+                "optional": False,
+                "type": "folder"
+            },
+            
+            "editor": {
+                "optional": False,
+                "type": "command"
+            },
+            
+            "harness": {
+                "optional": True,
+                "type": "command",
+            
+            },
+            
+            "browser_path": {
+                "optional": True,
+                "type": "file",
+            }
+        }
+
+        for field in fields:
+            required = field["optional"]
+            print(F"REQQUIRED: {required}")
+            type = field["type"]
+            
+            if required:  # Check if it's required
+                if field in data.keys():  # Check if the item is on the dictionary
+                    if data[field]:  # Check if the field is not "" or None
+                        match type:
+                            case "file":
+                                if Path(data[field]).is_file():
+                                    setattr(self, field, data[field])
+                                else:
+                                    raise ValueError(f"Incorrect type of field '{file}'. Must be a valid file.")
+                            case "folder":
+                                if Path(data[field]).is_dir():
+                                    setattr(self, field, data[field])
+                                else:
+                                    raise ValueError(f"Incorrect type of field '{file}'. Must be a valid file.")
+                            case "command":
+                                if isinstance(data[field], str):
+                                    setattr(self, field, data[field])
+                                else:
+                                    raise ValueError(f"Field '{field}' must be a string.")
+                    else:
+                        raise ValueError(f"Your field '{field}' must not be blank.")
+                else:
+                    raise ValueError(f"Missing '{field}' on your configs.toml.")
+            else:
+                pass
+
+        
+
+
+
+    def __validate_root(self, data) -> Path | None:
+        print(data["root"])
+
+        
+        
+
+
+
+if __name__ == '__main__':
+    #argparser = Argparser()    
+    #loader = Loader(argparser.parser.parse_args())
+
+    #loader.run()
+    Configs(ROOT / "configs.toml")
