@@ -305,17 +305,12 @@ class Configs:
         self.harness = self.__validate(field="harness", field_type="str", data=data, required=False)
         self.browser_path = self.__validate(field="browser_path", field_type="file", data=data, required=False)
 
-        print(f"\nroot value: {self.root}")
-        print(f"\neditor command: {self.editor}")
-        print(f"\nbrowser path: {self.browser_path}")
-        print(f"\nharness command: {self.harness}")
-
 
     def require_browser(self) -> Path:
         """ Returns the browser's path if available """
         if self.browser_path is None:
             raise ValueError("Browser is not configured")
-        
+
         return self.browser_path
 
 
@@ -329,23 +324,28 @@ class Configs:
             # Optional field: absence is represented by None
             return None 
 
-
+        # Colect the value of the field
         value = data[field]
+
+        # Check if the value is a string
+        if not isinstance(value, str):
+                raise ValueError(f"Field '{field}' must be a string. Got '{value}' ({type(value)})")
+        
+        # Check if the string is empty
+        if not value.strip():
+            raise ValueError(f"Field '{field}' cannot be empty")
+
+
+        # Check field's type
         match field_type:
             case "dir":
-                if isinstance(value, str) and not value.strip():
-                    raise ValueError(f"Field '{field}' cannot be empty.")
-
                 path = Path(value)
                 if path.is_dir():
                     return path
                 else:
-                    raise ValueError(f"Field {field} is not a valid directory ({value})")
+                    raise ValueError(f"Value '{value}' is not a valid '{field}' directory")
 
             case "file":
-                if isinstance(value, str) and not value.strip():
-                    raise ValueError(f"Field '{field}' cannot be empty.")
-
                 path = Path(value)
                 if path.is_file():
                     return path
@@ -353,10 +353,7 @@ class Configs:
                     raise ValueError(f"Field '{field}' does not contain a valid file ({value})")
 
             case "str":
-                if isinstance(value, str) and value.strip():
-                    return value
-
-                raise ValueError(f"Field '{field}' is not a valid string. Got {type(value)}")
+                return value
 
             case _:
                 raise ValueError(f"Unknown validation type '{field_type}'")
