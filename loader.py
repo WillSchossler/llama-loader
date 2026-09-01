@@ -2,6 +2,7 @@ import argparse
 import subprocess
 import tomllib
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parent
 
 
@@ -206,22 +207,22 @@ class Loader:
     def list(self, models: bool, profiles: bool):
         if models:
             print("\nModels:")
-            for name, model in self.models.items():
-                print(f"Name: {model.name:<10}||  Profile: {model.profile:>10}  ||   Path: {str(model.parent.resolve()):<70}")
+            for model in self.models.values():
+                print(f"Name: {model.name:<10}||  Profile: {model.profile:>10}  ||   Path: {model.parent.resolve()!s:<70}")
 
         elif profiles:
             print("\nProfiles:")
-            for profile in self.profiles.keys():
+            for profile in self.profiles:
                 if profile != "default":
                     print(profile)
 
         else:
             print("\nModels:")
-            for name, model in self.models.items():
-                print(f"Name: {model.name:<10}||  Profile: {model.profile:>10}  ||   Path: {str(model.parent.resolve()):<70}")
+            for model in self.models.values():
+                print(f"Name: {model.name:<10}||  Profile: {model.profile:>10}  ||   Path: {model.parent.resolve()!s:<70}")
 
             print("\nProfiles:")
-            for profile in self.profiles.keys():
+            for profile in self.profiles:
                 if profile != "default":
                     print(profile)
 
@@ -243,7 +244,7 @@ class Loader:
 
 
     def show(self, target: str, profile: str | None = None):
-        if target in self.profiles.keys():
+        if target in self.profiles:
             for (key, value) in self.profiles[target].items():
                 if value != "":
                     print(f"{key}: {value}")
@@ -327,7 +328,7 @@ class Configs:
 
         # Check if the value is a string
         if not isinstance(value, str):
-                raise ValueError(f"Field '{field}' must be a string. Got '{value}' ({type(value)})")
+                raise TypeError(f"Field '{field}' must be a string. Got '{value}' ({type(value)})")
         
         # Check if the string is empty
         if not value.strip():
