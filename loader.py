@@ -186,7 +186,8 @@ class Loader:
         command = model.build_command()  # Create a Popen command with everything! Note that, it just updates if the user insert flags or select a profile
 
         if b or i:  # Check if the browser or incognito flag is set
-            self.open_browser(model.arguments["host"], model.arguments["port"], i)  # If it is, then open the browser. NOTE: The llama-ui WAITS for the model to load, this is not a BUG!
+            browser = self.configs.require_browser()
+            open_browser(browser, model.arguments["host"], model.arguments["port"], i)  # If it is, then open the browser. NOTE: The llama-ui WAITS for the model to load, this is not a BUG!
         elif a:
             subprocess.Popen([self.configs.harness, Path.cwd()])
 
@@ -281,11 +282,9 @@ class Loader:
                 self.start(self.args.model, self.args.llamaargs, self.args.b, self.args.i, self.args.a)
 
 
-    def open_browser(self, host="127.0.0", port="9993", incognito: bool = False) -> None:
+    def open_browser(self, browser_path, host="127.0.0", port="9993", incognito: bool = False) -> None:
         """ Opens the browser set in configs.toml. You can chose to open in incognito """        
-        command = [
-            Path(self.configs.browser_path),
-            "--start-maximized",
+        command = [browser_path, "--start-maximized",
             f"http://{arguments["--host"]}:{arguments["--port"]}"
             ]
         if incognito:
@@ -296,72 +295,73 @@ class Loader:
 
 
 class Configs:
-    """ TODO: Describe class """
-    def __init__(self, path: Path):        
-        # Loads the file and validate
+    """ TODO: Describe class """    
+    def __init__(self, path: Path):  
         with path.open("rb") as file:
-            data = tomllib.load(file)        
+            data = tomllib.load(file)
 
-        fields = {
-            "root": {
-                "optional": False,
-                "type": "folder"
-            },
-            
-            "editor": {
-                "optional": False,
-                "type": "command"
-            },
-            
-            "harness": {
-                "optional": True,
-                "type": "command",
-            
-            },
-            
-            "browser_path": {
-                "optional": True,
-                "type": "file",
-            }
-        }
+        self.root = self.__validate(field="root", field_type="dir", data=data)
+        self.editor = self.__validate(field="editor", field_type="str", data=data)
+        self.harness = self.__validate(field="harness", field_type="str", data=data, required=False)
+        self.browser_path = self.__validate(field="browser_path", field_type="file", data=data, required=False)
 
-        for field in fields:
-            required = field["optional"]
-            print(F"REQQUIRED: {required}")
-            type = field["type"]
-            
-            if required:  # Check if it's required
-                if field in data.keys():  # Check if the item is on the dictionary
-                    if data[field]:  # Check if the field is not "" or None
-                        match type:
-                            case "file":
-                                if Path(data[field]).is_file():
-                                    setattr(self, field, data[field])
-                                else:
-                                    raise ValueError(f"Incorrect type of field '{file}'. Must be a valid file.")
-                            case "folder":
-                                if Path(data[field]).is_dir():
-                                    setattr(self, field, data[field])
-                                else:
-                                    raise ValueError(f"Incorrect type of field '{file}'. Must be a valid file.")
-                            case "command":
-                                if isinstance(data[field], str):
-                                    setattr(self, field, data[field])
-                                else:
-                                    raise ValueError(f"Field '{field}' must be a string.")
-                    else:
-                        raise ValueError(f"Your field '{field}' must not be blank.")
-                else:
-                    raise ValueError(f"Missing '{field}' on your configs.toml.")
-            else:
-                pass
+        print(f"\nroot value: {self.root}")
+        print(f"\neditor command: {self.editor}")
+        print(f"\nbrowser path: {self.browser_path}")
+        print(f"\nharness command: {self.harness}")
 
+
+    def require_browser(self) -> Path:
+        """ Returns the browser's path if available """
+        if self.browser_path is None:
+            raise ValueError("Browser is not configured")
         
+        return self.browser_path
 
 
+    def __validate(self, field: str, field_type: str, data: dict, required: bool = True):
+        """ TODO: Describe validation """
 
-    def __validate_root(self, data) -> Path | None:
-        print(data["root"])
+        # Check if the field is defined
+        if field not in data:
+            if required:
+                raise ValueError(f"Field '{field}' not defined in configs.toml")
+            # Optional field: absence is represented by None
+            return None 
+
+
+        value = data[field]
+        match field_type:
+            case "dir":
+                if isinstance(value, str) and not value.strip():
+                    raise ValueError(f"Field '{field}' cannot be empty.")
+
+                path = Path(value)
+                if path.is_dir():
+                    return path
+                else:
+                    raise ValueError(f"Field {field} is not a valid directory ({value})")
+
+            case "file":
+                if isinstance(value, str) and not value.strip():
+                    raise ValueError(f"Field '{field}' cannot be empty.")
+
+                path = Path(value)
+                if path.is_file():
+                    return path
+                else:
+                    raise ValueError(f"Field '{field}' does not contain a valid file ({value})")
+
+            case "str":
+                if isinstance(value, str) and value.strip():
+                    return value
+
+                raise ValueError(f"Field '{field}' is not a valid string. Got {type(value)}")
+
+            case _:
+                raise ValueError(f"Unknown validation type '{field_type}'")
+
+
 
         
         
@@ -369,6 +369,7 @@ class Configs:
 
 
 if __name__ == '__main__':
+    pass
     #argparser = Argparser()    
     #loader = Loader(argparser.parser.parse_args())
 
