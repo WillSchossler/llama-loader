@@ -1,6 +1,6 @@
-import tomllib
 import argparse
 import subprocess
+import tomllib
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 
@@ -187,7 +187,7 @@ class Loader:
 
         if b or i:  # Check if the browser or incognito flag is set
             browser = self.configs.require_browser()
-            open_browser(browser, model.arguments["host"], model.arguments["port"], i)  # If it is, then open the browser. NOTE: The llama-ui WAITS for the model to load, this is not a BUG!
+            self.open_browser(browser, model.arguments["host"], model.arguments["port"], i)  # If it is, then open the browser. NOTE: The llama-ui WAITS for the model to load, this is not a BUG!
         elif a:
             subprocess.Popen([self.configs.harness, Path.cwd()])
 
@@ -283,10 +283,8 @@ class Loader:
 
 
     def open_browser(self, browser_path, host="127.0.0", port="9993", incognito: bool = False) -> None:
-        """ Opens the browser set in configs.toml. You can chose to open in incognito """        
-        command = [browser_path, "--start-maximized",
-            f"http://{arguments["--host"]}:{arguments["--port"]}"
-            ]
+        """ Opens the browser set in configs.toml. You can choose to open in incognito """        
+        command = [browser_path, "--start-maximized", f"http://{host}:{port}"]
         if incognito:
             command.append("--incognito")
             
@@ -366,9 +364,6 @@ class Configs:
 
 
 if __name__ == '__main__':
-    pass
-    #argparser = Argparser()    
-    #loader = Loader(argparser.parser.parse_args())
-
-    #loader.run()
-    Configs(ROOT / "configs.toml")
+    argparser = Argparser()    
+    loader = Loader(argparser.parser.parse_args())
+    loader.run()
