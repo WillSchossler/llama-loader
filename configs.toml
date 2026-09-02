@@ -3,7 +3,7 @@
 
 # The absolute path where your models are stored. The search is recursive, so pick the root folder. 
 # Watch out for correct separator. Use the standard "/".
-root =  "C:/AI"
+root =  "F:/AI/LLMs"
 
 
 # The command to open Your file editor.
@@ -11,11 +11,6 @@ root =  "C:/AI"
 editor = "code.cmd"
 
 
-# The command used to open your harness. This will be passed to the subprocess.Popen() before the cwd().
-# (OPTIONAL: Delete if you don't want to open the harness)
-harness = "opencode"
-
-
 # The path to your browser's executable file.
 # (OPTIONAL: Delete if you don't want to automatically open the browser)
-browser_path = "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"
+browser_path = "C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe"

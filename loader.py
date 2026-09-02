@@ -35,11 +35,10 @@ class Argparser:
         # Start the llama.cpp server.
         self.start_parser = self.subparser.add_parser("start")
         self.start_parser.add_argument("model", help="TODO")
-        # Use the optional flags "-b", "-i" or "-a" BEFORE  <model> to open the browser normally, incognito, or start the harness
+        # Use the optional flags "-b", "-i" or BEFORE  <model> to open the browser normally or in incognito
         start_group = self.start_parser.add_mutually_exclusive_group()
         start_group.add_argument("-b", action="store_true", help="TODO")
         start_group.add_argument("-i", action="store_true", help="TODO")
-        start_group.add_argument("-a", action="store_true", help="TODO")
         # You can choose a profile after the <model> and/or pick as many llama.cpp flags as you want. Those have maximum priority
         self.start_parser.add_argument("llamaargs", nargs=argparse.REMAINDER, help="TODO")
 
@@ -92,7 +91,6 @@ class Configs:
 
         self.root = self.__validate(field="root", field_type="dir", data=data)
         self.editor = self.__validate(field="editor", field_type="str", data=data)
-        self.harness = self.__validate(field="harness", field_type="str", data=data, required=False)
         self.browser_path = self.__validate(field="browser_path", field_type="file", data=data, required=False)
 
     def require_browser(self) -> Path:
@@ -270,7 +268,6 @@ class Loader:
         llamaargs: list | None = None,
         b: bool = False,
         i: bool = False,
-        a: bool = False,
     ) -> None:
         """TODO: Describe method"""
 
@@ -312,13 +309,6 @@ class Loader:
 
             # If everything is set, we open the browser
             self.open_browser(browser_path, browser_host, browser_port, i)
-
-        # Try to open the harness
-        elif a:
-            try:
-                harness_process = subprocess.Popen([self.configs.harness, Path.cwd()])
-            except FileNotFoundError:
-                raise SystemExit("Error: Could not find '{self.configs.harness}' in the environment")
 
 
         # Finally, create a valid subprocess command
