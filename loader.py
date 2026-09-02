@@ -83,10 +83,110 @@ class Argparser:
         return result
 
 
+class Configs:
+    """TODO: Describe class"""
+
+    def __init__(self, path: Path):
+        with path.open("rb") as file:
+            data = tomllib.load(file)
+
+        self.root = self.__validate(field="root", field_type="dir", data=data)
+        self.editor = self.__validate(field="editor", field_type="str", data=data)
+        self.harness = self.__validate(field="harness", field_type="str", data=data, required=False)
+        self.browser_path = self.__validate(field="browser_path", field_type="file", data=data, required=False)
+
+    def require_browser(self) -> Path:
+        """Returns the browser's path if available"""
+        if self.browser_path is None:
+            raise ValueError("Browser is not configured")
+
+        return Path(self.browser_path)
+
+    def __validate(self, field: str, field_type: str, data: dict, required: bool = True):
+        """TODO: Describe validation"""
+
+        # Check if the field is defined
+        if field not in data:
+            if required:
+                raise ValueError(f"Field '{field}' not defined in configs.toml")
+            # Optional field: absence is represented by None
+            return None
+
+        # Colect the value of the field
+        value = data[field]
+
+        # Check if the value is a string
+        if not isinstance(value, str):
+            raise TypeError(f"Field '{field}' must be a string. Got '{value}' ({type(value)})")
+
+        # Check if the string is empty
+        if not value.strip():
+            raise ValueError(f"Field '{field}' cannot be empty")
+
+        # Check field's type
+        match field_type:
+            case "dir":
+                path = Path(value)
+                if path.is_dir():
+                    return path
+                else:
+                    raise ValueError(f"Value '{value}' is not a valid '{field}' directory")
+
+            case "file":
+                path = Path(value)
+                if path.is_file():
+                    return path
+                else:
+                    raise ValueError(f"Field '{field}' does not contain a valid file ({value})")
+
+            case "str":
+                return value
+
+            case _:
+                raise ValueError(f"Unknown validation type '{field_type}'")
+
+
+class Profiles:
+    """TODO: Explain class"""
+
+    def __init__(self, path: Path):
+        with path.open("rb") as file:
+            data = tomllib.load(file)
+
+        # Validate the data before saving it
+        self.__validate(data)
+        self.__data = data
+
+    def __getitem__(self, item):
+        """TODO: Explain method"""
+        return self.__data.__getitem__(item)
+
+    def __iter__(self):
+        """TODO: Explain method"""
+        return self.__data.__iter__()
+
+    def __validate(self, data: dict) -> None:
+        """TODO: Explain validation"""
+
+        if not isinstance(data, dict):
+            raise TypeError("Profiles data must be a dictionary.")
+
+        if "default" not in data:
+            raise ValueError("Missing required field 'default'")
+
+        for profile, flags in data.items():
+            if not isinstance(flags, dict):
+                raise TypeError(f"Profile '{profile}' must be a table")
+
+            for flag in flags:
+                if not flag.startswith("-"):
+                    raise ValueError(f"'{flag}' from profile '{profile}' is not a valid llama.cpp")
+
+
 class Model:
     """Stores model data"""
 
-    def __init__(self, model: dict, path: Path, parent: Path, profiles: dict):
+    def __init__(self, model: dict, path: Path, parent: Path, profiles: Profiles):
         self.path = path
         self.parent = parent
         self.profiles = profiles
@@ -101,25 +201,19 @@ class Model:
 
     def require_address(self) -> tuple[str, int]:
         """Return the host and port, if available"""
-        address = []
-        for argument in ["--host", "--port"]:
-            if not argument in self.arguments:
-                raise ValueError(f"Missing '{argument}' definition")
+        # Let the dict validate if the key is present or not
+        host = self.arguments["--host"]
+        port = self.arguments["--port"]
 
-            value = self.arguments[argument]
+        # Check if the value of host is valid
+        if not (isinstance(host, str) and host.strip()):
+            raise TypeError(f"Invalid value for field --host. Expected 'str', got '{type(host)}' ({host.__name__})")
 
-            if argument == "--host":
-                if isinstance(value, str) and value.strip():
-                    address.append(value)
-                else:
-                    raise ValueError(f"Invalid value for field --host. Expected 'str', got '{type(value)}' ({value})")
-            if argument == "--port":
-                if isinstance(value, value):
-                    address.append(value)
-                else:
-                    raise ValueError(f"Invalid type for field --port. Expected 'int', got '{type(value)}' ({value})")
+        # Check for port number
+        if not isinstance(port, int):
+            raise TypeError(f"Invalid type for field --port. Expected 'int', got '{type(port)}' ({port.__name__})")
 
-        return tuple(address)
+        return host, port
 
     def build_arguments(self, profile: dict) -> None:
         """Builds the correct arguments dict, given a specific profile"""
@@ -151,10 +245,10 @@ class Loader:
         self.models = {}  # Keeps models in a dict {name: Model}
         self.args = args  # Arguments collected from the argparser
         self.configs = Configs(ROOT / "configs.toml")  # Configurations set in the configs.toml
-        self.profiles = tomllib.load((ROOT / "profiles.toml").open("rb"))  # Profiles defined by the user
+        self.profiles = Profiles(ROOT / "profiles.toml")  # Profiles defined by the user in profiles.toml
 
         # Populate self.models dictionary. Looks for any ".toml" file in the root set in the configs.toml
-        models_root = Path(self.configs.root)
+        models_root = self.configs.root
         toml_paths = models_root.rglob("*.toml")
         required_fields = {"name", "files", "profile", "parameters"}
 
@@ -191,9 +285,7 @@ class Loader:
                 llamaargs.pop(0)  # IF IT'S A FLAG WE POP IT! WE NEED THIS LIST TO CONTAIN ONLY llama.cpp flags!
 
                 new_profile = self.profiles[profile_arg]  # Catch the correct new profile
-                selected_model.build_arguments(
-                    new_profile
-                )  # Update the arguments with the profile selected by the user
+                selected_model.build_arguments(new_profile)  # Update the arguments with the profile selected by the user
 
             elif not profile_arg.startswith("-"):
                 raise ValueError(f"{profile_arg} is not a valid profile or llama.cpp flag.")
@@ -201,7 +293,9 @@ class Loader:
             flags_dict = Argparser.args_to_dict(llamaargs)  # Create a dictionary with the llama.cpp flags
             selected_model.arguments.update(flags_dict)  # Updates the model with the CLI flags
 
-        command = selected_model.build_command()  # Create a Popen command with everything! Note that, it just updates if the user insert flags or select a profile
+        command = (
+            selected_model.build_command()
+        )  # Create a Popen command with everything! Note that, it just updates if the user insert flags or select a profile
 
         if b or i:  # Check if the browser or incognito flag is set
             browser_path = self.configs.require_browser()
@@ -224,9 +318,7 @@ class Loader:
         if models:
             print("\nModels:")
             for model in self.models.values():
-                print(
-                    f"Name: {model.name:<10}||  Profile: {model.profile:>10}  ||   Path: {model.parent.resolve()!s:<70}"
-                )
+                print(f"Name: {model.name:<10}||  Profile: {model.profile:>10}  ||   Path: {model.parent.resolve()!s:<70}")
 
         elif profiles:
             print("\nProfiles:")
@@ -237,9 +329,7 @@ class Loader:
         else:
             print("\nModels:")
             for model in self.models.values():
-                print(
-                    f"Name: {model.name:<10}||  Profile: {model.profile:>10}  ||   Path: {model.parent.resolve()!s:<70}"
-                )
+                print(f"Name: {model.name:<10}||  Profile: {model.profile:>10}  ||   Path: {model.parent.resolve()!s:<70}")
 
             print("\nProfiles:")
             for profile in self.profiles:
@@ -314,115 +404,8 @@ class Loader:
         subprocess.Popen(command)
 
 
-class Configs:
-    """TODO: Describe class"""
-
-    def __init__(self, path: Path):
-        with path.open("rb") as file:
-            data = tomllib.load(file)
-
-        self.root = self.__validate(field="root", field_type="dir", data=data)
-        self.editor = self.__validate(field="editor", field_type="str", data=data)
-        self.harness = self.__validate(field="harness", field_type="str", data=data, required=False)
-        self.browser_path = self.__validate(field="browser_path", field_type="file", data=data, required=False)
-
-    def require_browser(self) -> Path:
-        """Returns the browser's path if available"""
-        if self.browser_path is None:
-            raise ValueError("Browser is not configured")
-
-        return Path(self.browser_path)
-
-    def __validate(self, field: str, field_type: str, data: dict, required: bool = True):
-        """TODO: Describe validation"""
-
-        # Check if the field is defined
-        if field not in data:
-            if required:
-                raise ValueError(f"Field '{field}' not defined in configs.toml")
-            # Optional field: absence is represented by None
-            return None
-
-        # Colect the value of the field
-        value = data[field]
-
-        # Check if the value is a string
-        if not isinstance(value, str):
-            raise TypeError(f"Field '{field}' must be a string. Got '{value}' ({type(value)})")
-
-        # Check if the string is empty
-        if not value.strip():
-            raise ValueError(f"Field '{field}' cannot be empty")
-
-        # Check field's type
-        match field_type:
-            case "dir":
-                path = Path(value)
-                if path.is_dir():
-                    return path
-                else:
-                    raise ValueError(f"Value '{value}' is not a valid '{field}' directory")
-
-            case "file":
-                path = Path(value)
-                if path.is_file():
-                    return path
-                else:
-                    raise ValueError(f"Field '{field}' does not contain a valid file ({value})")
-
-            case "str":
-                return value
-
-            case _:
-                raise ValueError(f"Unknown validation type '{field_type}'")
-
-
-class Profiles:
-    """TODO: Explain class"""
-
-    def __init__(self, path: Path):
-        with path.open("rb") as file:
-            data = tomllib.load(file)
-
-        self.__validate(data)
-        self.data = data
-
-    def __validate(self, data: dict) -> None:
-        """TODO: Explain validation"""
-        if "default" not in data:
-            raise ValueError("Missing required field 'default'")
-
-        for profile, value in data.items():
-            for field in value:
-                if not field.startswith("-"):
-                    raise ValueError(f"Field '{field}' from profile '{profile}' is not a valid llama.cpp flag")
-
-
 if __name__ == "__main__":
     Profiles(ROOT / "profiles.toml")
-    # argparser = Argparser()
-    # loader = Loader(argparser.parser.parse_args())
-    # loader.run()
-
-
-"""def require_address(self) -> tuple[str, int]:
-    Return the validated host and port.
-    try:
-        host = self.arguments["--host"]
-        port = self.arguments["--port"]
-    except KeyError as error:
-        raise ValueError(f"Missing '{error.args[0]}' definition") from error
-
-    if not isinstance(host, str) or not host.strip():
-        raise ValueError(
-            f"Invalid value for --host. Expected non-empty 'str', "
-            f"got '{type(host).__name__}' ({host!r})"
-        )
-
-    if not isinstance(port, int):
-        raise ValueError(
-            f"Invalid value for --port. Expected 'int', "
-            f"got '{type(port).__name__}' ({port!r})"
-        )
-
-    return host, port"""
+    argparser = Argparser()
+    loader = Loader(argparser.parser.parse_args())
+    loader.run()

@@ -2,10 +2,8 @@
 
 
 # Name of the model.
-name = "Gemma4-12B"   
-
-# A nickname used to identify the model. This is the reference to start the server and it's very important.
-alias = "gemma"       
+name = "gemma"   
+    
 
 # Default model's profile. If you don't have a profile, just set it to "default" or create a new one in the "profiles.toml".
 profile = "off"       
