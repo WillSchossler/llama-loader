@@ -1,4 +1,5 @@
 import argparse
+import os
 import subprocess
 import tomllib
 from pathlib import Path
@@ -10,7 +11,6 @@ class Argparser:
     """TODO: Describe the class"""
 
     def __init__(self):
-        # First definitions used to create the arguments
         self.parser = argparse.ArgumentParser(description="TODO", prog="llama-loader")
         self.subparser = self.parser.add_subparsers(dest="command", required=True, help="TODO")
 
@@ -21,9 +21,9 @@ class Argparser:
         self.edit_parser = self.subparser.add_parser("edit")
         self.edit_parser.add_argument("file", help="TODO")
 
-        # Show model's parameters. Pick a model or use the option "profile" flag to show the final result
+        # Show model's parameters. Pick a model or use the optional "profile" flag to show the final result
         self.show_parser = self.subparser.add_parser("show")
-        self.show_parser.add_argument("target", help="TODO")
+        self.show_parser.add_argument("model", help="TODO")
         self.show_parser.add_argument("profile", nargs="?", help="TODO")
 
         # List models and/or profiles. Choose between "-m" or "-p" optional flags to filter the result
@@ -207,11 +207,11 @@ class Model:
 
         # Check if the value of host is valid
         if not (isinstance(host, str) and host.strip()):
-            raise TypeError(f"Invalid value for field --host. Expected 'str', got '{type(host)}' ({host.__name__})")
+            raise TypeError(f"Invalid value for field --host. Expected 'str', got '{type(host).__name__}'")
 
         # Check for port number
         if not isinstance(port, int):
-            raise TypeError(f"Invalid type for field --port. Expected 'int', got '{type(port)}' ({port.__name__})")
+            raise TypeError(f"Invalid type for field --port. Expected 'int', got '{type(port).__name__}'")
 
         return host, port
 
@@ -272,47 +272,82 @@ class Loader:
         i: bool = False,
         a: bool = False,
     ) -> None:
-        if model not in self.models:  # Test if the model is known
+        """TODO: Describe method"""
+
+        # Check if the model is known
+        if model not in self.models:
             raise ValueError(f"Unknown model: {model}.")
 
-        selected_model = self.models[model]  # Grabs the correct model
+        # If the model is valid, get it from the list
+        selected_model = self.models[model]
 
-        if llamaargs:  # If there are available flags
-            llamaargs = llamaargs.copy()  # Make a copy of the list to prevent errors
-            profile_arg = llamaargs[0]  # Collect the first one
+        # Check for any llama.cpp flags
+        if llamaargs:
+            llamaargs = llamaargs.copy()
+            profile_arg = llamaargs[0]
 
-            if profile_arg in self.profiles:  # If the first flag is a profile name
-                llamaargs.pop(0)  # IF IT'S A FLAG WE POP IT! WE NEED THIS LIST TO CONTAIN ONLY llama.cpp flags!
+            # Check if the first argument is a profile
+            if profile_arg in self.profiles:
+                llamaargs.pop(0)
 
-                new_profile = self.profiles[profile_arg]  # Catch the correct new profile
-                selected_model.build_arguments(new_profile)  # Update the arguments with the profile selected by the user
+                # If it's a valid profile, update the selected model
+                new_profile = self.profiles[profile_arg]
+                selected_model.build_arguments(new_profile)
 
+            # If the first argument is not a profile or valid llama.cpp flag
             elif not profile_arg.startswith("-"):
                 raise ValueError(f"{profile_arg} is not a valid profile or llama.cpp flag.")
 
-            flags_dict = Argparser.args_to_dict(llamaargs)  # Create a dictionary with the llama.cpp flags
-            selected_model.arguments.update(flags_dict)  # Updates the model with the CLI flags
+            # Parse the llama.cpp flags as a dict and update selected model
+            flags_dict = Argparser.args_to_dict(llamaargs)
+            selected_model.arguments.update(flags_dict)
 
-        command = (
-            selected_model.build_command()
-        )  # Create a Popen command with everything! Note that, it just updates if the user insert flags or select a profile
 
-        if b or i:  # Check if the browser or incognito flag is set
+        # Check if the user selected to open browser
+        if b or i:
+            # Get the browser path. Validation raise an error if not set
             browser_path = self.configs.require_browser()
+            # Get the host address and the port. Validation is done in the method
             browser_host, browser_port = selected_model.require_address()
+
+            # If everything is set, we open the browser
             self.open_browser(browser_path, browser_host, browser_port, i)
+
+        # Try to open the harness
         elif a:
-            subprocess.Popen([self.configs.harness, Path.cwd()])
+            try:
+                harness_process = subprocess.Popen([self.configs.harness, Path.cwd()])
+            except FileNotFoundError:
+                raise SystemExit("Error: Could not find '{self.configs.harness}' in the environment")
 
-        # Just start the server with the command we just made
-        process = subprocess.Popen(command)
 
+        # Finally, create a valid subprocess command
+        command = selected_model.build_command()
+
+        # Try to open the llama.cpp server
         try:
-            process.wait()
-        except KeyboardInterrupt:  # If the user uses CTRL + C
+            llama_process = subprocess.Popen(command)
+            llama_process.wait()
+
+        # Check if the user interrupted the process (CTRL + C)
+        except KeyboardInterrupt:
             print("\nClosing the server...")
-            process.terminate()
-            process.wait()
+            llama_process.terminate()
+            llama_process.wait()
+
+        # Check if the user have llama.cpp set as a terminal command
+        except FileNotFoundError:
+            print("Error: llama.cpp was not found")
+
+            # Inform the error and suggest how to install
+            if os.name == "nt":
+                print("\nInstall via winget with: 'winget install llama.cpp'")
+            else:
+                print("\nInstall via homebrew with: 'brew install llama.cpp'")
+
+            raise SystemExit("\nOr compile your own version from source: See more at https://github.com/ggml-org/llama.cpp")
+
+
 
     def list(self, models: bool, profiles: bool) -> None:
         if models:
@@ -351,32 +386,32 @@ class Loader:
         else:
             raise FileNotFoundError(f"{file} doesn't exists.")
 
-    def show(self, target: str, profile: str | None = None) -> None:
-        if target in self.profiles:
-            for key, value in self.profiles[target].items():
+    def show(self, model: str, profile: str | None = None) -> None:
+        if model in self.profiles:
+            for key, value in self.profiles[model].items():
                 if value != "":
                     print(f"{key}: {value}")
                 else:
                     print(key)
 
-        elif target in self.models:
-            model = self.models[target]
+        elif model in self.models:
+            selected_model = self.models[model]
 
             if profile:
                 if profile not in self.profiles:
                     raise ValueError(f"Unknown profile: {profile}")
 
                 else:
-                    model.build_arguments(self.profiles[profile])
+                    selected_model.build_arguments(self.profiles[profile])
 
-            for key, value in model.arguments.items():
+            for key, value in selected_model.arguments.items():
                 if value != "":
                     print(f"{key}: {value}")
                 else:
                     print(key)
 
         else:
-            raise ValueError(f"{target} is not a valid model or profile.")
+            raise ValueError(f"{model} is not a valid model or profile.")
 
     def run(self) -> None:
         match self.args.command:
@@ -385,7 +420,7 @@ class Loader:
             case "edit":
                 self.edit(self.args.file)
             case "show":
-                self.show(self.args.target, self.args.profile)
+                self.show(self.args.model, self.args.profile)
             case "start":
                 self.start(
                     self.args.model,
@@ -405,7 +440,6 @@ class Loader:
 
 
 if __name__ == "__main__":
-    Profiles(ROOT / "profiles.toml")
     argparser = Argparser()
     loader = Loader(argparser.parser.parse_args())
     loader.run()
