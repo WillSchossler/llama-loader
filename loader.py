@@ -406,7 +406,7 @@ if __name__ == "__main__":
 
 
 """def require_address(self) -> tuple[str, int]:
-    """Return the validated host and port."""
+    Return the validated host and port.
     try:
         host = self.arguments["--host"]
         port = self.arguments["--port"]
