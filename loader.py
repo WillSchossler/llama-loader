@@ -417,7 +417,6 @@ class Loader:
                     self.args.llamaargs,
                     self.args.b,
                     self.args.i,
-                    self.args.a,
                 )
 
     def open_browser(self, browser_path, host="127.0.0", port="9993", incognito: bool = False) -> None:
