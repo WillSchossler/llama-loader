@@ -3,7 +3,7 @@
 
 # The absolute path where your models are stored. The search is recursive, so pick the root folder. 
 # Watch out for correct separator. Use the standard "/".
-root =  "F:/AI/LLMs"
+root =  "C:/AI"
 
 
 # The command to open Your file editor.
@@ -13,4 +13,4 @@ editor = "code.cmd"
 
 # The path to your browser's executable file.
 # (OPTIONAL: Delete if you don't want to automatically open the browser)
-browser_path = "C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe"
+browser_path = "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"
