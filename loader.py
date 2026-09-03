@@ -189,7 +189,7 @@ class Model:
         self.parent = parent
         self.profiles = profiles
 
-        self.__validate(model, parent)
+        self.__validate(model, parent, profiles)
         self.name = model["name"]
         self.profile = model["profile"]
         self.parameters = model["parameters"]
@@ -236,34 +236,64 @@ class Model:
 
         return command
 
-    def __validate(self, model: dict, parent: Path) -> None:
+    def __validate(self, model: dict, parent: Path, profiles: Profiles) -> None:
         """TODO: Explain validation"""
 
+        missing = {"name", "profile", "parameters", "files"} - model.keys()
+        if missing:
+            raise ValueError(f"Missing required profile fields: {', '.join(missing)}")
+
+
         name = model["name"]
-        # Check if the model name is valid
-        if not (isinstance(name, str) and name.strip()):
-            raise ValueError(f"Invalid model name: {name}")
+        if not isinstance(name, str):
+            raise TypeError(f"Invalid type for field 'name'. Expected 'str', got '{type(name).__name__}'")
+
+        if not name.strip():
+            raise ValueError("Field 'name' cannot be empty")
+
 
         profile = model["profile"]
-        # Check if the model profile is valid
-        if not (isinstance(profile, str) and profile.strip()):
-            raise ValueError(f"Invalid profile name: {profile}")
+        if not isinstance(name, str):
+            raise TypeError(f"Invalid type for field 'profile'. Expected 'str', got '{type(profile).__name__}'")
 
-        # Check if all parameters start with "-"
-        paramaters = model["parameters"]
-        for parameter in paramaters:
+        if not name.strip():
+            raise ValueError("Field 'profile' cannot be empty")
+
+        if profile not in profiles:
+            raise ValueError(f"Profile '{profile}' defined by model '{name}' does not exist")
+
+
+        parameters = model["parameters"]
+        if not isinstance(parameters, dict):
+            raise TypeError(f"Invalid type for field 'parameters'. Expected 'dict', got '{type(parameters).__name__}'")
+
+        for parameter in parameters:
+            if not isinstance(parameter, str):
+                raise TypeError(f"Invalid parameter type. Expected 'str'. Got '{type(parameter).__name__}'")
+
             if not parameter.startswith("-"):
                 raise ValueError(f"Parameter '{parameter}' is not a valid llama.cpp flag")
 
-        # Check if all files are valid
+
         files = model["files"]
-        for file, value in files.items():
-            # First check if the file is a valid llama.cpp flag
-            if not file.startswith("-"):
-                raise ValueError(f"Parameter '{file}' is not a valid llama.cpp flag")
+        if not isinstance(files, dict):
+            raise TypeError(f"Invalid type for field 'files'. Expected 'dict', got '{type(files).__name__}'")
+            
+        for flag, value in files.items():
+            if not isinstance(flag, str):
+                raise TypeError(f"Invalid file flag type. Expected 'str', got '{type(flag).__name__}'")
+
+            if not flag.startswith("-"):
+                raise ValueError(f"Parameter '{flag}' is not a valid llama.cpp flag")
+
+            if not isinstance(value, str):
+                raise TypeError(f"Invalid file path for flag '{flag}'. Expected 'str', got '{type(value).__name__}'")
+
+            if not value.strip():
+                raise ValueError(f"File path for flag '{flag}' cannot be empty")
 
             if not (parent / value).is_file():
-                raise ValueError(f"Flag '{file}' does not contain a valid file path: {value}")
+                raise ValueError(f"Flag '{flag}' does not contain a valid file path: {value}")
 
 
 class Loader:
