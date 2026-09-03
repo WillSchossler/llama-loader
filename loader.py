@@ -4,7 +4,7 @@ import subprocess
 import tomllib
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).parent.resolve()
 
 
 class Argparser:
@@ -188,11 +188,12 @@ class Model:
         self.path = path
         self.parent = parent
         self.profiles = profiles
+
+        self.__validate(model, parent)
         self.name = model["name"]
         self.profile = model["profile"]
         self.parameters = model["parameters"]
-
-        self.files = {file: str(parent / path) for (file, path) in model["files"].items()}
+        self.files = {file: (parent / path) for (file, path) in model["files"].items()}
 
         self.arguments = {}
         self.build_arguments(self.profiles[self.profile])
@@ -235,6 +236,35 @@ class Model:
 
         return command
 
+    def __validate(self, model: dict, parent: Path) -> None:
+        """TODO: Explain validation"""
+
+        name = model["name"]
+        # Check if the model name is valid
+        if not (isinstance(name, str) and name.strip()):
+            raise ValueError(f"Invalid model name: {name}")
+
+        profile = model["profile"]
+        # Check if the model profile is valid
+        if not (isinstance(profile, str) and profile.strip()):
+            raise ValueError(f"Invalid profile name: {profile}")
+
+        # Check if all parameters start with "-"
+        paramaters = model["parameters"]
+        for parameter in paramaters:
+            if not parameter.startswith("-"):
+                raise ValueError(f"Parameter '{parameter}' is not a valid llama.cpp flag")
+
+        # Check if all files are valid
+        files = model["files"]
+        for file, value in files.items():
+            # First check if the file is a valid llama.cpp flag
+            if not file.startswith("-"):
+                raise ValueError(f"Parameter '{file}' is not a valid llama.cpp flag")
+
+            if not (parent / value).is_file():
+                raise ValueError(f"Flag '{file}' does not contain a valid file path: {value}")
+
 
 class Loader:
     """TODO: Describe the class"""
@@ -258,7 +288,7 @@ class Loader:
                 name = model_toml["name"]
 
                 if name in self.models:  # Validation for the duplicate "name" case
-                    raise ValueError(f'Invalid model at "{toml_path}". The name "{name}" already exists.')
+                    raise ValueError(f"Invalid model at '{toml_path}'. The name '{name}' already exists")
                 else:
                     self.models[model_toml["name"]] = Model(model_toml, toml_path, toml_path.parent, self.profiles)
 
@@ -299,7 +329,6 @@ class Loader:
             flags_dict = Argparser.args_to_dict(llamaargs)
             selected_model.arguments.update(flags_dict)
 
-
         # Check if the user selected to open browser
         if b or i:
             # Get the browser path. Validation raise an error if not set
@@ -309,7 +338,6 @@ class Loader:
 
             # If everything is set, we open the browser
             self.open_browser(browser_path, browser_host, browser_port, i)
-
 
         # Finally, create a valid subprocess command
         command = selected_model.build_command()
@@ -336,8 +364,6 @@ class Loader:
                 print("\nInstall via homebrew with: 'brew install llama.cpp'")
 
             raise SystemExit("\nOr compile your own version from source: See more at https://github.com/ggml-org/llama.cpp")
-
-
 
     def list(self, models: bool, profiles: bool) -> None:
         if models:
