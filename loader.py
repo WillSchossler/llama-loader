@@ -480,76 +480,86 @@ class Loader:
                     print(profile)
 
     def init(self, cwd: Path):
-        """TODO: Explain method"""
+        """
+        Creates a draft "folder-name.toml" file in the current working directory.
+        
+        Looks in the folder for the keywords: "mmproj", "mtp", "dflash" ".jinja"
+        to fill the corresponding llama.cpp flag. 
 
-        # The name of the generated .toml file
+        If only one file remains after the scan, assume it's the model.
+        
+        Args:
+            cwd: The current working directory
+
+        
+        """
+
         name = f"{cwd.name.replace(' ', '-')}.toml"
-
-        # llama.cpp flags for the file
         flags = {
-            "--model": "",
-            "--mmproj": "",
-            "--model-draft": "",
-            "--chat-template-file": "",
-            "--spec-type": "ngram-mod",
+            "model": "",
+            "mmproj": "",
+            "draft": "",
+            "template": "",
+            "spec-type": "",
         }
 
-        # Look for any valid file extensions
+        # Search only for files with ".gguf" or ".jinja" extension
         files = [file.name for file in cwd.iterdir() if file.suffix.lower() in (".gguf", ".jinja")]
-        # Check for any file that looks like a llama.cpp value
+        
+        
         for file in files.copy():
             file_lower = file.lower()
 
             if ".jinja" in file_lower:
-                flags["--chat-template-file"] = file
+                flags["template"] = f'\n\t--chat-template-file = "{file}"'
                 files.remove(file)
 
             elif "mmproj" in file_lower:
-                flags["--mmproj"] = file
+                flags["mmproj"] = f'\n\t--mmproj = "{file}"'
                 files.remove(file)
 
             elif "mtp" in file_lower:
-                flags["--model-draft"] = file
-                flags["--spec-type"] += ",draft-mtp"
+                flags["draft"] = f'\n\t--model-draft = "{file}"'
+                flags["spec-type"] = '\n\t--spec-type = "ngram-mod,draft-mtp"'
                 files.remove(file)
 
             elif "dflash" in file_lower:
-                flags["--model-draft"] = file
-                flags["--spec-type"] += ",draft-dflash"
+                flags["draft"] = file
+                flags["spec-type"] = '\n--spec-type = "ngram-mod,draft-dflash"'
                 files.remove(file)
 
-        # The remaining file should be the model
-        flags["--model"] = files[0] if len(files) == 1 else ""
+        # If there is only one file left, we assume it's the model 
+        if len(files) == 1:
+            flags["model"] = f'\n\t--model = "{files[0]}"'
+        else:
+            flags["model"] = f'\n\t--model = "DEFINE_MODEL_PATH"'
 
-        # Resulting .toml file
+
         toml = textwrap.dedent(f"""
         # {cwd.name}
 
 
-        # Name of the model. Must be unique.
+        # A name used to identify the model. Must be unique.
         name = "{"-".join(name.split("-")[0:2]).lower()}"
 
-        # Model's profile. Pick one from "profiles.toml".
+        # Default profile for the model. Pick one table from "profiles.toml".
+        # The flags from your chosen profile will overwrite the default ones.
         profile = "default"
 
 
-        # Relative path of your files. Delete the flag if not needed.
-        [files]
-        --model = "{flags["--model"]}"
-        --mmproj = "{flags["--mmproj"]}"
-        --model-draft = "{flags["--model-draft"]}"
-        --chat-template-file = "{flags["--chat-template-file"]}"
+        # Relative path of your files.
+        [files]{flags["model"]}{flags["mmproj"]}{flags["draft"]}{flags["template"]}
 
 
-        # Aditional llama.cpp flags.
-        [parameters]
-        --agent = ""
-        --spec-type = "{flags["--spec-type"]}"   
-        """)
+        # Aditional llama.cpp parameters.
+        [parameters]{flags["spec-type"]}
+        --jinja = ""
+        --cache-type-k = "q8_0"
+        --cache-type-v = "q8_0" """)
 
-        # Create the .toml file
+        print(toml)
+
         output = cwd / name
-        # Validate existence
         if output.exists():
             raise SystemExit(f"Error: '{output.name}' already exists")
         else:
