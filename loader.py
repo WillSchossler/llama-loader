@@ -15,7 +15,7 @@ class Argparser:
         self.subparser = self.parser.add_subparsers(dest="command", required=True, help="TODO")
 
         # Create a draft .toml in the CWD. The result .toml will be filled if the files in the folder are appropriately named
-        # self.init_parser = self.subparser.add_parser("init")
+        self.init_parser = self.subparser.add_parser("init", help="TODO")
 
         # Edit the model's TOML file. Use the "editor" set in configs.toml to open the file
         self.edit_parser = self.subparser.add_parser("edit")
@@ -278,7 +278,7 @@ class Model:
         files = model["files"]
         if not isinstance(files, dict):
             raise TypeError(f"Invalid type for field 'files'. Expected 'dict', got '{type(files).__name__}'")
-            
+
         for flag, value in files.items():
             if not isinstance(flag, str):
                 raise TypeError(f"Invalid file flag type. Expected 'str', got '{type(flag).__name__}'")
@@ -417,6 +417,84 @@ class Loader:
                 if profile != "default":
                     print(profile)
 
+
+
+    def init(self, cwd: Path):
+        """TODO: Explain method"""
+
+        # The name of the generated .toml file
+        name = f"{cwd.name.replace(' ', '-')}.toml"
+        
+        # llama.cpp flags for the file
+        flags ={
+            "--model": "",
+            "--mmproj": "",
+            "--model-draft": "",
+            "--chat-template-file": "",
+            "--spec-type": "ngram-mod"
+        }
+
+        # Look for any valid file extensions
+        files = [file.name for file in cwd.iterdir() if file.suffix.lower() in (".gguf", ".jinja")]
+        # Check for any file that looks like a llama.cpp value
+        for file in files.copy():
+            file_lower = file.lower()
+
+            if ".jinja" in file_lower:
+                flags["--chat-template-file"] = file
+                files.remove(file)
+            
+            elif "mmproj" in file_lower:
+                flags["--mmproj"] = file
+                files.remove(file)
+
+            elif "mtp" in file_lower:
+                flags["--model-draft"] = file
+                flags["--spec-type"] += ",draft-mtp"
+                files.remove(file)
+
+            elif "dflash" in file_lower:
+                flags["--model-draft"] = file
+                flags["--spec-type"] += ",draft-dflash"
+                files.remove(file)
+        
+        # The remaining file should be the model
+        flags["--model"] = files[0] if len(files) == 1 else "Set here your model's path"
+
+        # Resulting .toml file
+        toml = f"""
+        # {cwd.name}
+
+
+        # Name of the model. Must be unique.
+        name = "{"-".join(name.split("-")[0:2]).lower()}"
+
+        # Model's profile. Pick one from "profiles.toml".
+        profile = "default"
+
+
+        # Files for your model. If blank, delete or set the correct path.
+        [files]
+        --model = "{flags["--model"]}"
+        --mmproj = "{flags["--mmproj"]}"
+        --model-draft = "{flags["--model-draft"]}"
+        --chat-template-file = "{flags["--chat-template-file"]}"
+
+
+        # Any llama.cpp valid flags.
+        [parameters]
+        --spec-type = "{flags["--spec-type"]}"   
+        """
+        
+        # Create the .toml file
+        output = cwd / name
+        if output.exists():
+            raise SystemExit(f"Error: '{output.name}' already exists")
+        else:
+            output.write_text(toml, encoding="utf-8")
+
+
+
     def edit(self, file: str) -> None:
         if file in ("configs", "profiles"):
             path = ROOT / Path(f"{file}.toml")
@@ -465,6 +543,8 @@ class Loader:
                 self.list(self.args.models, self.args.profiles)
             case "edit":
                 self.edit(self.args.file)
+            case "init":
+                self.init(Path.cwd())
             case "show":
                 self.show(self.args.model, self.args.profile)
             case "start":
