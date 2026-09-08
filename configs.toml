@@ -1,9 +1,9 @@
 # Configurations file. 
 
 
-# The absolute path where your models are stored. The search is recursive, so pick the root folder. 
+# The root folder where the models are stored. Th search is recursive. 
 # Watch out for correct separator. Use the standard "/".
-root =  "C:/AI"
+root =  "pytests/example"
 
 
 # The command to open Your file editor.
