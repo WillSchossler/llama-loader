@@ -29,37 +29,40 @@ class CLI:
     """
 
     def __init__(self):
-        self.parser = argparse.ArgumentParser(description="TODO", prog="llama-loader")
-        subparsers = self.parser.add_subparsers(dest="command", required=True, help="TODO")
+        self.parser = argparse.ArgumentParser(
+            description="Load and manage llama.cpp models via llama-server.",
+            prog="llama-loader",
+        )
+        subparsers = self.parser.add_subparsers(dest="command", required=True, help="Available commands")
 
-        subparsers.add_parser("init", help="TODO")
+        subparsers.add_parser("init", help="Generate a draft model configuration in the current directory")
 
-        edit_parser = subparsers.add_parser("edit")
-        edit_parser.add_argument("file", help="TODO")
+        edit_parser = subparsers.add_parser("edit", help="Open a configuration file in the editor")
+        edit_parser.add_argument("file", help="Model name, or 'configs' / 'profiles'")
 
-        show_parser = subparsers.add_parser("show")
-        show_parser.add_argument("model", help="TODO")
-        show_parser.add_argument("profile", nargs="?", help="TODO")
+        show_parser = subparsers.add_parser("show", help="Show a profile or a model's resolved arguments")
+        show_parser.add_argument("model", help="Model or profile name")
+        show_parser.add_argument("profile", nargs="?", help="Optional profile to apply to the model")
 
-        list_parser = subparsers.add_parser("list")
+        list_parser = subparsers.add_parser("list", help="List the available models and profiles")
         list_group = list_parser.add_mutually_exclusive_group()
-        list_group.add_argument("--models", "-m", action="store_true", help="TODO")
-        list_group.add_argument("--profiles", "-p", action="store_true", help="TODO")
+        list_group.add_argument("--models", "-m", action="store_true", help="List only the models")
+        list_group.add_argument("--profiles", "-p", action="store_true", help="List only the profiles")
 
-        start_parser = subparsers.add_parser("start")
+        start_parser = subparsers.add_parser("start", help="Start llama-server for a model")
         start_group = start_parser.add_mutually_exclusive_group()
-        start_group.add_argument("-b", action="store_true", help="TODO")
-        start_group.add_argument("-i", action="store_true", help="TODO")
-        start_parser.add_argument("model", help="TODO")
-        start_parser.add_argument("llamaargs", nargs=argparse.REMAINDER, help="TODO")
+        start_group.add_argument("-b", action="store_true", help="Open the browser at the server URL")
+        start_group.add_argument("-i", action="store_true", help="Open the browser in incognito mode")
+        start_parser.add_argument("model", help="Name of the model to start")
+        start_parser.add_argument("llamaargs", nargs=argparse.REMAINDER, help="Optional profile and llama.cpp flags")
 
     def parse_args(self) -> argparse.Namespace:
         """
         Parses the command-line arguments provided by the user.
 
         Returns:
-            A dictionary containing the parsed command-line
-                arguments and their corresponding values.
+            An argparse.Namespace with the selected command, its options and
+            positional values.
         """
         return self.parser.parse_args()
 
@@ -144,12 +147,18 @@ class Configs:
 
         self.root: Path = self.__validate(field="root", validation_type="dir", data=data)
         self.editor: str = self.__validate(field="editor", validation_type="str", data=data)
-        self.browser_path: Path = self.__validate(
-            field="browser_path", validation_type="file", data=data, required=False
-        )
+        self.browser_path: Path | None = self.__validate(field="browser_path", validation_type="file", data=data, required=False)
 
     def require_browser(self) -> Path:
-        """TODO: Explain method"""
+        """
+        Return the path to the configured browser executable.
+
+        Returns:
+            Path to the browser executable.
+
+        Raises:
+            ValueError: If no browser path is configured.
+        """
 
         if self.browser_path is None:
             raise ValueError("Browser is not configured")
@@ -157,7 +166,28 @@ class Configs:
         return self.browser_path
 
     def __validate(self, field: str, validation_type: str, data: dict, required: bool = True):
-        """TODO: Explain validation"""
+        """
+        Validate a single field from the global configuration.
+
+        Checks that the field is present (when required), that its value is a
+        non-empty string, and that it satisfies the given validation type (a
+        directory, a file, or a plain string).
+
+        Args:
+            field: Name of the field to validate.
+            validation_type: One of ``"dir"``, ``"file"`` or ``"str"``.
+            data: The parsed configuration dictionary.
+            required: Whether the field must be present.
+
+        Returns:
+            The validated value (a ``Path`` for ``"dir"``/``"file"``), or ``None``
+            when the field is optional and absent.
+
+        Raises:
+            ValueError: If the field is missing, empty, its value does not
+                satisfy the validation type, or the validation type is unknown.
+            TypeError: If the field is present but is not a string.
+        """
 
         if field not in data:
             if required:
@@ -228,7 +258,23 @@ class Profiles:
         return iter(self.__data)
 
     def __validate(self, data: dict) -> None:
-        """TODO: Explain validation"""
+        """
+        Validate the parsed profiles data.
+
+        Ensures the data is a dictionary that defines a ``default`` profile, that
+        every profile is a table of flags (each flag starting with ``"-"``), and
+        that the default profile defines ``--host`` (non-empty string) and
+        ``--port`` (integer).
+
+        Args:
+            data: The parsed profiles dictionary.
+
+        Raises:
+            TypeError: If the data or a profile is not a dictionary, or if
+                ``--host``/``--port`` have the wrong type.
+            ValueError: If the default profile is missing, a flag name does not
+                start with ``"-"``, or a required default flag is missing/empty.
+        """
 
         if not isinstance(data, dict):
             raise TypeError("Profiles data must be a dictionary.")
@@ -260,7 +306,7 @@ class Profiles:
         if not host.strip():
             raise ValueError("Default '--host' cannot be empty.")
 
-        if not isinstance(port, int):
+        if type(port) is not int:
             raise TypeError(f"Default '--port' must be an integer. Got '{type(port).__name__}'.")
 
 
@@ -308,11 +354,23 @@ class Model:
         self.arguments: dict[str, object] = {}
         self.build_arguments(self.profiles[self.profile])
 
-    def require_address(self) -> tuple[str, object]:
-        """TODO: Explain method"""
+    def require_address(self) -> tuple[str, int]:
+        """
+        Return the effective server address for this model.
+
+        Resolves ``--host`` and ``--port`` from the final arguments, coercing the
+        port to an integer and validating its range.
+
+        Returns:
+            A ``(host, port)`` tuple.
+
+        Raises:
+            ValueError: If ``--host`` is empty or ``--port`` is not a valid port.
+            TypeError: If ``--host`` is not a string or ``--port`` is not a number.
+        """
 
         host = self.arguments["--host"]
-        if not (isinstance(host, str) and host.strip()):
+        if not isinstance(host, str):
             raise TypeError(f"Invalid value for field --host. Expected 'str', got '{type(host).__name__}'")
 
         if not host.strip():
@@ -325,7 +383,7 @@ class Model:
             except ValueError:
                 raise ValueError(f"Invalid port: '{port}'")
 
-        if not isinstance(port, int):
+        if type(port) is not int:
             raise TypeError(f"Invalid type for field --port. Expected 'int', got '{type(port).__name__}'")
 
         if not 1 <= port <= 65535:
@@ -334,7 +392,16 @@ class Model:
         return host, port
 
     def build_arguments(self, profile: dict) -> None:
-        """TODO: Explain method"""
+        """
+        Recompute the final llama.cpp arguments from the configuration layers.
+
+        ``self.arguments`` is cleared and rebuilt by merging, in priority order
+        (lowest to highest): the ``default`` profile, ``profile``, the model's
+        own ``parameters`` and the model's ``files``.
+
+        Args:
+            profile: The profile table applied to this model.
+        """
         self.arguments.clear()
 
         for arguments in [
@@ -346,7 +413,15 @@ class Model:
             self.arguments.update(arguments)
 
     def build_command(self) -> list[str]:
-        """TODO: Explain method"""
+        """
+        Build the command line used to start ``llama-server``.
+
+        Flags with an empty value are emitted as bare flags; flags with a value
+        are followed by that value as a separate argument.
+
+        Returns:
+            The list of command-line tokens, starting with ``llama-server``.
+        """
         command = ["llama-server"]
         for parameter, value in self.arguments.items():
             command.append(parameter)
@@ -356,7 +431,23 @@ class Model:
         return command
 
     def __validate(self, model: dict, parent: Path, profiles: Profiles) -> None:
-        """TODO: Explain validation"""
+        """
+        Validate a model configuration.
+
+        Checks that all required fields are present with the correct types, that
+        the ``profile`` references an existing profile, and that every ``files``
+        entry is a path to an existing file relative to ``parent``.
+
+        Args:
+            model: The parsed model configuration.
+            parent: Directory used to resolve relative file paths.
+            profiles: The available validated profiles.
+
+        Raises:
+            ValueError: If a required field is missing or empty, the profile is
+                unknown, a flag name is invalid, or a file does not exist.
+            TypeError: If a required field has the wrong type.
+        """
 
         missing = {"name", "profile", "parameters", "files"} - model.keys()
         if missing:
@@ -447,11 +538,6 @@ class Loader:
         show: Display a profile or the resolved arguments for a model.
         run: Dispatch the command selected through the CLI.
         open_browser: Launch the configured browser for the llama-server interface.
-
-    Raises:
-        ValueError: If the model is unknown, an invalid profile-like argument
-            is provided, or required runtime configuration is invalid.
-        SystemExit: If the llama-server executable cannot be found.
     """
 
     def __init__(self, args: argparse.Namespace):
@@ -465,7 +551,8 @@ class Loader:
         required_fields = {"name", "files", "profile", "parameters"}
 
         for toml_path in toml_paths:
-            model_toml = tomllib.load(toml_path.open("rb"))
+            with toml_path.open("rb") as file:
+                model_toml = tomllib.load(file)
 
             # Will consider a valid model ONLY if the .toml have a name, file, profile and parameter set
             if required_fields <= model_toml.keys():
@@ -475,9 +562,7 @@ class Loader:
                     raise ValueError(f"Invalid model at '{toml_path}'. The name '{model.name}' already exists")
 
                 if model.name in self.profiles:
-                    raise ValueError(
-                        f"Invalid model at '{toml_path}'. The name '{model.name}' is already defined as a profile"
-                    )
+                    raise ValueError(f"Invalid model at '{toml_path}'. The name '{model.name}' is already defined as a profile")
 
                 self.models[model.name] = model
 
@@ -488,7 +573,6 @@ class Loader:
         b: bool = False,
         i: bool = False,
     ) -> None:
-
         """
         Configure and start llama-server for a selected model.
 
@@ -530,7 +614,6 @@ class Loader:
             SystemExit: If the llama-server executable cannot be found.
         """
 
-
         if model not in self.models:
             raise ValueError(f"Unknown model: {model}.")
 
@@ -538,7 +621,7 @@ class Loader:
 
         if llamaargs:
             # Copy is made to prevent changes in the mutable
-            llamaargs = llamaargs.copy()
+            llamaargs: list[str] = llamaargs.copy()
             profile_arg = llamaargs[0]
 
             if profile_arg in self.profiles:
@@ -577,19 +660,22 @@ class Loader:
             else:
                 print("\nInstall via homebrew with: 'brew install llama.cpp'")
 
-            raise SystemExit(
-                "\nOr compile your own version from source: See more at https://github.com/ggml-org/llama.cpp"
-            )
+            raise SystemExit("\nOr compile your own version from source: See more at https://github.com/ggml-org/llama.cpp")
 
     def list(self, models: bool, profiles: bool) -> None:
-        """TODO: Explain method"""
+        """
+        Print the available models and profiles.
+
+        Args:
+            models: Whether to print the models section.
+            profiles: Whether to print the profiles section (the default profile
+                is hidden). When both are unset, both sections are shown.
+        """
 
         def print_models(values):
             print("\nModels:")
             for model in values:
-                print(
-                    f"Name: {model.name:<10}||  Profile: {model.profile:>10}  ||   Path: {model.parent.resolve()!s:<70}"
-                )
+                print(f"Name: {model.name:<10}||  Profile: {model.profile:>10}  ||   Path: {model.parent.resolve()!s:<70}")
 
         def print_profiles(profiles):
             print("\nProfiles:")
@@ -606,9 +692,23 @@ class Loader:
             print_profiles(self.profiles)
 
     def init(self, cwd: Path):
-        """TODO: Explain method"""
+        """
+        Generate a draft model configuration in the current directory.
 
-        name = f"{cwd.name.replace(' ', '-')}.toml"
+        Scans ``cwd`` for ``.gguf`` and ``.jinja`` files, classifies them into
+        model / mmproj / draft / template slots, and writes a starter ``.toml``
+        (named after the folder) that the user can then adjust.
+
+        Args:
+            cwd: Directory containing the model files.
+
+        Raises:
+            SystemExit: If a configuration file for the folder already exists.
+        """
+
+        stem = cwd.name.replace(" ", "-")
+        model_name = "-".join(stem.split("-")[:2]).lower()
+        output_name = f"{stem}.toml"
         flags = {
             "model": "",
             "mmproj": "",
@@ -618,7 +718,7 @@ class Loader:
         }
 
         # Search only for files with ".gguf" or ".jinja" extension
-        files = [file.name for file in cwd.iterdir() if file.suffix.lower() in (".gguf", ".jinja")]
+        files = [file.name for file in cwd.iterdir() if file.is_file() and file.suffix.lower() in (".gguf", ".jinja")]
 
         for file in files.copy():
             file_lower = file.lower()
@@ -652,7 +752,7 @@ class Loader:
 
 
         # A name used to identify the model. Must be unique.
-        name = "{"-".join(name.split("-")[0:2]).lower()}"
+        name = "{model_name}"
 
         # Default profile for the model. Pick one table from "profiles.toml".
         # The flags from your chosen profile will overwrite the default ones.
@@ -668,15 +768,27 @@ class Loader:
         --fit = "on"
         --jinja = "" """)
 
-        output = cwd / name
+        output = cwd / output_name
         if output.exists():
             raise SystemExit(f"Error: '{output.name}' already exists")
-        
+
         else:
             output.write_text(toml, encoding="utf-8")
 
     def edit(self, file: str) -> None:
-        """TODO: Explain method"""
+        """
+        Open a configuration file in the configured editor.
+
+        ``file`` may be one of the global config files (``configs`` / ``profiles``)
+        or the name of a discovered model.
+
+        Args:
+            file: A global config name or a model name.
+
+        Raises:
+            ValueError: If the name is neither a global config nor a model.
+            FileNotFoundError: If the resolved file does not exist.
+        """
 
         if file in ("configs", "profiles"):
             path = ROOT / Path(f"{file}.toml")
@@ -686,12 +798,25 @@ class Loader:
             raise ValueError(f"{file} is not a valid model or file.")
 
         if path.is_file():
-            subprocess.Popen([self.configs.editor, path])
+            subprocess.Popen([self.configs.editor, str(path)])
         else:
-            raise FileNotFoundError(f"{file} doesn't exists.")
+            raise FileNotFoundError(f"{file} doesn't exist.")
 
     def show(self, model: str, profile: str | None = None) -> None:
-        """TODO: Explain method"""
+        """
+        Print the resolved arguments for a model, or the flags of a profile.
+
+        When ``model`` is a profile name, that profile's flags are shown. When it
+        is a model, the model's final arguments are shown; if a ``profile`` is
+        also given, the arguments are recomputed against that profile first.
+
+        Args:
+            model: A model name or a profile name.
+            profile: Optional profile to apply to the model.
+
+        Raises:
+            ValueError: If the given model/profile name is unknown.
+        """
 
         if model in self.profiles:
             for key, value in self.profiles[model].items():
@@ -720,7 +845,12 @@ class Loader:
             raise ValueError(f"{model} is not a valid model or profile.")
 
     def run(self) -> None:
-        """TODO: Explain method"""
+        """
+        Dispatch the parsed command to its operation.
+
+        Reads the selected subcommand and its options from ``self.args`` and
+        calls the matching loader method.
+        """
         match self.args.command:
             case "list":
                 self.list(self.args.models, self.args.profiles)
@@ -738,9 +868,23 @@ class Loader:
                     self.args.i,
                 )
 
-    def open_browser(self, browser_path, host="127.0.0.1", port="9993", incognito: bool = False) -> None:
-        """TODO: Explain method"""
-        command = [browser_path, "--start-maximized", f"http://{host}:{port}"]
+    def open_browser(
+        self,
+        browser_path: Path,
+        host: str = "127.0.0.1",
+        port: int = 9931,
+        incognito: bool = False,
+    ) -> None:
+        """
+        Launch the configured browser pointed at the llama-server URL.
+
+        Args:
+            browser_path: Path to the browser executable.
+            host: Server host to open.
+            port: Server port to open.
+            incognito: Whether to open the browser in incognito mode.
+        """
+        command = [str(browser_path), "--start-maximized", f"http://{host}:{port}"]
         if incognito:
             command.append("--incognito")
 
