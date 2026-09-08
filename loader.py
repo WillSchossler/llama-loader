@@ -21,55 +21,44 @@ class CLI:
 
     Attributes:
         parser: Root ArgumentParser responsible for parsing the command-line arguments.
-        subparser: Subparser collection containing the application's available commands.
-        init_parser: Parser for the ``init`` command.
-        edit_parser: Parser for the ``edit`` command.
-        show_parser: Parser for the ``show`` command.
-        list_parser: Parser for the ``list`` command.
-        start_parser: Parser for the ``start`` command.
 
     Methods:
         parse_args: Parses the command-line arguments provided by the user.
-        args_to_dict: Converts a sequence of llama.cpp
-        command-line arguments
+        args_to_dict: Converts a sequence of llama.cpp command-line arguments
             into a dictionary of flags and values.
-
-    Raises:
-        ValueError: If ``args_to_dict`` receives an argument that does not
-            represent a valid llama.cpp flag.
     """
 
     def __init__(self):
         self.parser = argparse.ArgumentParser(description="TODO", prog="llama-loader")
-        self.subparser = self.parser.add_subparsers(dest="command", required=True, help="TODO")
+        subparsers = self.parser.add_subparsers(dest="command", required=True, help="TODO")
 
-        self.init_parser = self.subparser.add_parser("init", help="TODO")
+        subparsers.add_parser("init", help="TODO")
 
-        self.edit_parser = self.subparser.add_parser("edit")
-        self.edit_parser.add_argument("file", help="TODO")
+        edit_parser = subparsers.add_parser("edit")
+        edit_parser.add_argument("file", help="TODO")
 
-        self.show_parser = self.subparser.add_parser("show")
-        self.show_parser.add_argument("model", help="TODO")
-        self.show_parser.add_argument("profile", nargs="?", help="TODO")
+        show_parser = subparsers.add_parser("show")
+        show_parser.add_argument("model", help="TODO")
+        show_parser.add_argument("profile", nargs="?", help="TODO")
 
-        self.list_parser = self.subparser.add_parser("list")
-        list_group = self.list_parser.add_mutually_exclusive_group()
+        list_parser = subparsers.add_parser("list")
+        list_group = list_parser.add_mutually_exclusive_group()
         list_group.add_argument("--models", "-m", action="store_true", help="TODO")
         list_group.add_argument("--profiles", "-p", action="store_true", help="TODO")
 
-        self.start_parser = self.subparser.add_parser("start")
-        start_group = self.start_parser.add_mutually_exclusive_group()
+        start_parser = subparsers.add_parser("start")
+        start_group = start_parser.add_mutually_exclusive_group()
         start_group.add_argument("-b", action="store_true", help="TODO")
         start_group.add_argument("-i", action="store_true", help="TODO")
-        self.start_parser.add_argument("model", help="TODO")
-        self.start_parser.add_argument("llamaargs", nargs=argparse.REMAINDER, help="TODO")
+        start_parser.add_argument("model", help="TODO")
+        start_parser.add_argument("llamaargs", nargs=argparse.REMAINDER, help="TODO")
 
     def parse_args(self) -> argparse.Namespace:
         """
         Parses the command-line arguments provided by the user.
 
         Returns:
-            argparse.Namespace: Namespace containing the parsed command-line
+            A dictionary containing the parsed command-line
                 arguments and their corresponding values.
         """
         return self.parser.parse_args()
@@ -87,26 +76,13 @@ class CLI:
             args: Sequence of command-line arguments to convert.
 
         Returns:
-            dict[str, str]: Dictionary containing llama.cpp flags
-                and their associated values.
+            A dictionary containing llama.cpp flags and their associated values.
 
         Raises:
-            ValueError: If an argument that is not a valid flag is encountered.
+            ValueError: If a value expected to represent a flag does not start with "-".
         """
 
         def is_flag(value: str) -> bool:
-            """
-            Determines whether a command-line argument represents a flag.
-
-            Numeric values prefixed with ``-`` are treated as values rather than
-            flags, allowing negative numeric arguments to be parsed correctly.
-
-            Args:
-                value: Command-line argument to evaluate.
-
-            Returns:
-                bool: ``True`` if the value represents a flag; otherwise, ``False``.
-            """
             if not value.startswith("-"):
                 return False
 
@@ -117,7 +93,7 @@ class CLI:
             except ValueError:
                 return True
 
-        result = {}
+        result: dict[str, str] = {}
         i = 0
 
         while i < len(args):
@@ -143,85 +119,111 @@ class CLI:
 
 
 class Configs:
-    """TODO: Describe class"""
+    """
+    Loads and validates llama-loader's user configuration.
 
-    def __init__(self, path: Path):
-        with path.open("rb") as file:
+    The configuration is read from a TOML file and exposed as validated
+    attributes for use by the rest of the application.
+
+    Args:
+        configs_path: Path to the TOML configuration file.
+
+    Attributes:
+        root: Directory containing the user's LLMs.
+        editor: Command used to open the configured editor.
+        browser_path: Path to the browser executable, or None if not configured.
+
+    Methods:
+        require_browser: Return the configured browser path
+            or raise an error if no browser is configured.
+    """
+
+    def __init__(self, configs_path: Path):
+        with configs_path.open("rb") as file:
             data = tomllib.load(file)
 
-        self.root = self.__validate(field="root", field_type="dir", data=data)
-        self.editor = self.__validate(field="editor", field_type="str", data=data)
-        self.browser_path = self.__validate(field="browser_path", field_type="file", data=data, required=False)
+        self.root: Path = self.__validate(field="root", validation_type="dir", data=data)
+        self.editor: str = self.__validate(field="editor", validation_type="str", data=data)
+        self.browser_path: Path = self.__validate(field="browser_path", validation_type="file", data=data, required=False)
 
     def require_browser(self) -> Path:
-        """Returns the browser's path if available"""
+        """TODO: Describle method"""
+
         if self.browser_path is None:
             raise ValueError("Browser is not configured")
 
-        return Path(self.browser_path)
+        return self.browser_path
 
-    def __validate(self, field: str, field_type: str, data: dict, required: bool = True):
+    def __validate(self, field: str, validation_type: str, data: dict, required: bool = True):
         """TODO: Describe validation"""
 
-        # Check if the field is defined
         if field not in data:
             if required:
                 raise ValueError(f"Field '{field}' not defined in configs.toml")
             # Optional field: absence is represented by None
             return None
 
-        # Colect the value of the field
         value = data[field]
 
-        # Check if the value is a string
         if not isinstance(value, str):
             raise TypeError(f"Field '{field}' must be a string. Got '{value}' ({type(value)})")
 
-        # Check if the string is empty
         if not value.strip():
             raise ValueError(f"Field '{field}' cannot be empty")
 
-        # Check field's type
-        match field_type:
+        match validation_type:
             case "dir":
                 path = Path(value)
-                if path.is_dir():
-                    return path
-                else:
+                if not path.is_dir():
                     raise ValueError(f"Value '{value}' is not a valid '{field}' directory")
+
+                return path
 
             case "file":
                 path = Path(value)
-                if path.is_file():
-                    return path
-                else:
+                if not path.is_file():
                     raise ValueError(f"Field '{field}' does not contain a valid file ({value})")
+
+                return path
 
             case "str":
                 return value
 
             case _:
-                raise ValueError(f"Unknown validation type '{field_type}'")
+                raise ValueError(f"Unknown validation type '{validation_type}'")
 
 
 class Profiles:
-    """TODO: Explain class"""
+    """
+    Loads and validates the profiles defined in a TOML file.
+
+    The class provides limited mapping-like access to validated profiles,
+    allowing profile lookup and iteration without exposing the full mutable
+    dictionary interface.
+
+    The default profile must define the settings required internally by
+    llama-loader.
+
+    Args:
+        path: Path to the profiles TOML file.
+
+    Methods:
+        __getitem__: Return a profile by name.
+        __iter__: Iterate over profile names.
+    """
 
     def __init__(self, path: Path):
         with path.open("rb") as file:
             data = tomllib.load(file)
 
-        # Validate the data before saving it
         self.__validate(data)
-        self.__data = data
+        self.__data: dict = data
 
-    def __getitem__(self, item):
-        """TODO: Explain method"""
-        return self.__data.__getitem__(item)
+    def __getitem__(self, item: str) -> dict:
+        return self.__data[item]
 
     def __iter__(self):
-        """TODO: Explain method"""
-        return self.__data.__iter__()
+        return iter(self.__data)
 
     def __validate(self, data: dict) -> None:
         """TODO: Explain validation"""
@@ -238,11 +240,58 @@ class Profiles:
 
             for flag in flags:
                 if not flag.startswith("-"):
-                    raise ValueError(f"'{flag}' from profile '{profile}' is not a valid llama.cpp")
+                    raise ValueError(f"'{flag}' from profile '{profile}' should start with '-'.")
+
+
+        default = data["default"]
+        missing = {"--host", "--port"} - default.keys()
+
+        if missing:
+            missing_flags = ", ".join(sorted(missing))
+            raise ValueError(f"Default profile is missing required flags: {missing_flags}")
+
+        host = default["--host"]
+        port = default["--port"]
+
+        if not isinstance(host, str):
+            raise TypeError(f"Default '--host' must be a string. Got '{type(host).__name__}'.")
+
+        if not host.strip():
+            raise ValueError("Default '--host' cannot be empty.")
+
+        if not isinstance(port, int):
+            raise TypeError(f"Default '--port' must be an integer. Got '{type(port).__name__}'.")
 
 
 class Model:
-    """Stores model data"""
+    """
+    Represents a validated llama.cpp model configuration.
+
+    The class validates model metadata and file references, resolves model
+    file paths, combines configuration layers into the final llama.cpp
+    arguments, and builds the command used to start llama-server.
+
+    Args:
+        model: Model configuration loaded from TOML.
+        path: Path to the model's TOML configuration file.
+        parent: Directory used to resolve relative model file paths.
+        profiles: Available validated profiles.
+
+    Attributes:
+        path: Path to the model configuration file.
+        parent: Base directory for model files.
+        profiles: Available profiles.
+        name: Unique model name.
+        profile: Name of the selected profile.
+        parameters: Model-specific llama.cpp parameters.
+        files: Model file flags mapped to their resolved paths.
+        arguments: Final llama.cpp arguments after configuration merging.
+
+    Methods:
+        require_address: Return the final host and port.
+        build_arguments: Build the final argument mapping for a profile.
+        build_command: Build the command used to start llama-server.
+    """
 
     def __init__(self, model: dict, path: Path, parent: Path, profiles: Profiles):
         self.path = path
@@ -250,44 +299,54 @@ class Model:
         self.profiles = profiles
 
         self.__validate(model, parent, profiles)
-        self.name = model["name"]
-        self.profile = model["profile"]
-        self.parameters = model["parameters"]
-        self.files = {file: (parent / path) for (file, path) in model["files"].items()}
+        self.name: str = model["name"]
+        self.profile: str = model["profile"]
+        self.parameters: dict[str, object] = model["parameters"]
+        self.files: dict[str, Path] = {flag: parent / file_path for flag, file_path in model["files"].items()}
+        
+        self.arguments: dict[str, object] = {}
+        self.build_arguments(self.profiles[self.profile])            
 
-        self.arguments = {}
-        self.build_arguments(self.profiles[self.profile])
-
-    def require_address(self) -> tuple[str, int]:
-        """Return the host and port, if available"""
-        # Let the dict validate if the key is present or not
+    def require_address(self) -> tuple[str, object]:
+        """TODO: Explain method"""
+        
         host = self.arguments["--host"]
-        port = self.arguments["--port"]
-
-        # Check if the value of host is valid
         if not (isinstance(host, str) and host.strip()):
             raise TypeError(f"Invalid value for field --host. Expected 'str', got '{type(host).__name__}'")
 
-        # Check for port number
+        if not host.strip():
+            raise ValueError("Flag '--host' cannot be empty")
+
+
+        port = self.arguments["--port"]
+        if isinstance(port, str):
+            try:
+                port = int(port)
+                if not 1 <= port <= 65535:
+                    raise ValueError(f"Port number '{port}' is not a valid value. Must be between 1 and 65535")
+            except ValueError:
+                raise ValueError(f"Invalid port: '{port}'")
+
         if not isinstance(port, int):
             raise TypeError(f"Invalid type for field --port. Expected 'int', got '{type(port).__name__}'")
+
 
         return host, port
 
     def build_arguments(self, profile: dict) -> None:
-        """Builds the correct arguments dict, given a specific profile"""
+        """TODO: Explain method"""
         self.arguments.clear()
 
-        for argument in [
+        for arguments in [
             self.profiles["default"],
             profile,
             self.parameters,
             self.files,
         ]:
-            self.arguments.update(argument)
+            self.arguments.update(arguments)
 
     def build_command(self) -> list[str]:
-        """Build a valid Popen list to start a llama.cpp using the model's self arguments"""
+        """TODO: Explain method"""
         command = ["llama-server"]
         for parameter, value in self.arguments.items():
             command.append(parameter)
@@ -301,7 +360,8 @@ class Model:
 
         missing = {"name", "profile", "parameters", "files"} - model.keys()
         if missing:
-            raise ValueError(f"Missing required profile fields: {', '.join(missing)}")
+            raise ValueError(f"Missing required model fields: {', '.join(sorted(missing))}")
+
 
         name = model["name"]
         if not isinstance(name, str):
@@ -309,6 +369,7 @@ class Model:
 
         if not name.strip():
             raise ValueError("Field 'name' cannot be empty")
+
 
         profile = model["profile"]
         if not isinstance(profile, str):
@@ -319,6 +380,7 @@ class Model:
 
         if profile not in profiles:
             raise ValueError(f"Profile '{profile}' defined by model '{name}' does not exist")
+
 
         parameters = model["parameters"]
         if not isinstance(parameters, dict):
@@ -331,6 +393,7 @@ class Model:
             if not parameter.startswith("-"):
                 raise ValueError(f"Parameter '{parameter}' is not a valid llama.cpp flag")
 
+
         files = model["files"]
         if not isinstance(files, dict):
             raise TypeError(f"Invalid type for field 'files'. Expected 'dict', got '{type(files).__name__}'")
@@ -340,7 +403,7 @@ class Model:
                 raise TypeError(f"Invalid file flag type. Expected 'str', got '{type(flag).__name__}'")
 
             if not flag.startswith("-"):
-                raise ValueError(f"Parameter '{flag}' is not a valid llama.cpp flag")
+                raise ValueError(f"File flag '{flag}' is not a valid llama.cpp flag")
 
             if not isinstance(value, str):
                 raise TypeError(f"Invalid file path for flag '{flag}'. Expected 'str', got '{type(value).__name__}'")
@@ -356,12 +419,11 @@ class Loader:
     """TODO: Describe the class"""
 
     def __init__(self, args: argparse.Namespace):
-        self.models = {}  # Keeps models in a dict {name: Model}
-        self.args = args  # Arguments collected from the argparser
-        self.configs = Configs(ROOT / "configs.toml")  # Configurations set in the configs.toml
-        self.profiles = Profiles(ROOT / "profiles.toml")  # Profiles defined by the user in profiles.toml
+        self.args = args
+        self.models = {}  # Stores models in a dict {name: Model}
+        self.configs = Configs(ROOT / "configs.toml")
+        self.profiles = Profiles(ROOT / "profiles.toml")
 
-        # Populate self.models dictionary. Looks for any ".toml" file in the root set in the configs.toml
         models_root = self.configs.root
         toml_paths = models_root.rglob("*.toml")
         required_fields = {"name", "files", "profile", "parameters"}
@@ -371,12 +433,15 @@ class Loader:
 
             # Will consider a valid model ONLY if the .toml have a name, file, profile and parameter set
             if required_fields <= model_toml.keys():
-                name = model_toml["name"]
+                model = Model(model_toml, toml_path, toml_path.parent, self.profiles)
 
-                if name in self.models:  # Validation for the duplicate "name" case
-                    raise ValueError(f"Invalid model at '{toml_path}'. The name '{name}' already exists")
-                else:
-                    self.models[model_toml["name"]] = Model(model_toml, toml_path, toml_path.parent, self.profiles)
+                if model.name in self.models:  # Validation for the duplicate "name" case
+                    raise ValueError(f"Invalid model at '{toml_path}'. The name '{model.name}' already exists")
+
+                if model.name in self.profiles:
+                    raise ValueError(f"Invalid model at '{toml_path}'. The name '{model.name}' is already defined as a profile")
+                
+                self.models[model.name] = model
 
     def start(
         self,
@@ -412,7 +477,7 @@ class Loader:
                 raise ValueError(f"{profile_arg} is not a valid profile or llama.cpp flag.")
 
             # Parse the llama.cpp flags as a dict and update selected model
-            flags_dict = Argparser.args_to_dict(llamaargs)
+            flags_dict = CLI.args_to_dict(llamaargs)
             selected_model.arguments.update(flags_dict)
 
         # Check if the user selected to open browser
@@ -449,17 +514,13 @@ class Loader:
             else:
                 print("\nInstall via homebrew with: 'brew install llama.cpp'")
 
-            raise SystemExit(
-                "\nOr compile your own version from source: See more at https://github.com/ggml-org/llama.cpp"
-            )
+            raise SystemExit("\nOr compile your own version from source: See more at https://github.com/ggml-org/llama.cpp")
 
     def list(self, models: bool, profiles: bool) -> None:
         if models:
             print("\nModels:")
             for model in self.models.values():
-                print(
-                    f"Name: {model.name:<10}||  Profile: {model.profile:>10}  ||   Path: {model.parent.resolve()!s:<70}"
-                )
+                print(f"Name: {model.name:<10}||  Profile: {model.profile:>10}  ||   Path: {model.parent.resolve()!s:<70}")
 
         elif profiles:
             print("\nProfiles:")
@@ -470,9 +531,7 @@ class Loader:
         else:
             print("\nModels:")
             for model in self.models.values():
-                print(
-                    f"Name: {model.name:<10}||  Profile: {model.profile:>10}  ||   Path: {model.parent.resolve()!s:<70}"
-                )
+                print(f"Name: {model.name:<10}||  Profile: {model.profile:>10}  ||   Path: {model.parent.resolve()!s:<70}")
 
             print("\nProfiles:")
             for profile in self.profiles:
@@ -482,16 +541,16 @@ class Loader:
     def init(self, cwd: Path):
         """
         Creates a draft "folder-name.toml" file in the current working directory.
-        
+
         Looks in the folder for the keywords: "mmproj", "mtp", "dflash" ".jinja"
-        to fill the corresponding llama.cpp flag. 
+        to fill the corresponding llama.cpp flag.
 
         If only one file remains after the scan, assume it's the model.
-        
+
         Args:
             cwd: The current working directory
 
-        
+
         """
 
         name = f"{cwd.name.replace(' ', '-')}.toml"
@@ -505,8 +564,7 @@ class Loader:
 
         # Search only for files with ".gguf" or ".jinja" extension
         files = [file.name for file in cwd.iterdir() if file.suffix.lower() in (".gguf", ".jinja")]
-        
-        
+
         for file in files.copy():
             file_lower = file.lower()
 
@@ -521,19 +579,20 @@ class Loader:
             elif "mtp" in file_lower:
                 flags["draft"] = f'\n\t--model-draft = "{file}"'
                 flags["spec-type"] = '\n\t--spec-type = "ngram-mod,draft-mtp"'
+
                 files.remove(file)
 
             elif "dflash" in file_lower:
-                flags["draft"] = file
-                flags["spec-type"] = '\n--spec-type = "ngram-mod,draft-dflash"'
+                flags["draft"] = f'\n\t--model-draft = "{file}"'
+                flags["spec-type"] = '\n\t--spec-type = "ngram-mod,draft-dflash"'
+
                 files.remove(file)
 
-        # If there is only one file left, we assume it's the model 
+        # If there is only one file left, we assume it's the model
         if len(files) == 1:
             flags["model"] = f'\n\t--model = "{files[0]}"'
         else:
-            flags["model"] = f'\n\t--model = "DEFINE_MODEL_PATH"'
-
+            flags["model"] = '\n\t--model = "DEFINE_MODEL_PATH"'
 
         toml = textwrap.dedent(f"""
         # {cwd.name}
@@ -553,17 +612,16 @@ class Loader:
 
         # Aditional llama.cpp parameters.
         [parameters]{flags["spec-type"]}
-        --jinja = ""
-        --cache-type-k = "q8_0"
-        --cache-type-v = "q8_0" """)
+        --fit = "on"
+        --jinja = "" """)
 
         print(toml)
 
-        output = cwd / name
-        if output.exists():
-            raise SystemExit(f"Error: '{output.name}' already exists")
-        else:
-            output.write_text(toml, encoding="utf-8")
+        # output = cwd / name
+        # if output.exists():
+        #    raise SystemExit(f"Error: '{output.name}' already exists")
+        # else:
+        #    output.write_text(toml, encoding="utf-8")
 
     def edit(self, file: str) -> None:
         if file in ("configs", "profiles"):
@@ -625,7 +683,7 @@ class Loader:
                     self.args.i,
                 )
 
-    def open_browser(self, browser_path, host="127.0.0", port="9993", incognito: bool = False) -> None:
+    def open_browser(self, browser_path, host="127.0.0.1", port="9993", incognito: bool = False) -> None:
         """Opens the browser set in configs.toml. You can choose to open in incognito"""
         command = [browser_path, "--start-maximized", f"http://{host}:{port}"]
         if incognito:
