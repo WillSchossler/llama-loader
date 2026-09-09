@@ -5,7 +5,7 @@ import textwrap
 import tomllib
 from pathlib import Path
 
-ROOT = Path(__file__).parent.resolve()
+ROOT = Path(__file__).parent.parent.resolve()
 
 
 class CLI:
@@ -340,6 +340,8 @@ class Model:
         build_command: Build the command used to start llama-server.
     """
 
+    REQUIRED_FIELDS = frozenset({"name", "profile", "parameters", "files"})
+
     def __init__(self, model: dict, path: Path, parent: Path, profiles: Profiles):
         self.path = path
         self.parent = parent
@@ -449,7 +451,7 @@ class Model:
             TypeError: If a required field has the wrong type.
         """
 
-        missing = {"name", "profile", "parameters", "files"} - model.keys()
+        missing = self.REQUIRED_FIELDS - model.keys()
         if missing:
             raise ValueError(f"Missing required model fields: {', '.join(sorted(missing))}")
 
@@ -540,22 +542,23 @@ class Loader:
         open_browser: Launch the configured browser for the llama-server interface.
     """
 
+    REQUIRED_FIELDS = frozenset({"name", "files", "profile", "parameters"})
+
     def __init__(self, args: argparse.Namespace):
         self.args = args
         self.models: dict[str, Model] = {}
-        self.configs = Configs(ROOT / "configs.toml")
-        self.profiles = Profiles(ROOT / "profiles.toml")
+        self.configs = Configs(ROOT / "settings" / "configs.toml")
+        self.profiles = Profiles(ROOT / "settings" / "profiles.toml")
 
         models_root = self.configs.root
         toml_paths = models_root.rglob("*.toml")
-        required_fields = {"name", "files", "profile", "parameters"}
 
         for toml_path in toml_paths:
             with toml_path.open("rb") as file:
                 model_toml = tomllib.load(file)
 
             # Will consider a valid model ONLY if the .toml have a name, file, profile and parameter set
-            if required_fields <= model_toml.keys():
+            if self.REQUIRED_FIELDS <= model_toml.keys():
                 model = Model(model_toml, toml_path, toml_path.parent, self.profiles)
 
                 if model.name in self.models:
@@ -691,7 +694,7 @@ class Loader:
             print_models(self.models.values())
             print_profiles(self.profiles)
 
-    def init(self, cwd: Path):
+    def init(self, cwd: Path) -> None:
         """
         Generate a draft model configuration in the current directory.
 
@@ -891,7 +894,10 @@ class Loader:
         subprocess.Popen(command)
 
 
-if __name__ == "__main__":
+def main() -> None:
     cli = CLI()
     loader = Loader(cli.parse_args())
     loader.run()
+
+if __name__ == "__main__":
+    main()

@@ -3,7 +3,7 @@
 
 # The root folder where the models are stored. Th search is recursive. 
 # Watch out for correct separator. Use the standard "/".
-root =  "pytests/example"
+root = "F:/AI/LLMs"  # "F:/AI/LLMs"  |  "tests/example"
 
 
 # The command to open Your file editor.
