@@ -1,3 +1,7 @@
+# Local user configuration
+settings/configs.toml
+settings/profiles.toml
+
 # Python
 __pycache__/
 *.py[cod]

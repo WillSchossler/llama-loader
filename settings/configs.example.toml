@@ -1,0 +1,29 @@
+# llama-loader global configuration.
+#
+# Copy this file to "configs.toml" and adjust the values for your system.
+
+
+# Root directory where llama-loader searches for model TOML files.
+# The search is recursive.
+#
+# Use "/" as the path separator, including on Windows.
+#
+# The default value points to the repository's example directory so the
+# configuration works immediately after cloning the project.
+root = "./examples"
+
+
+# Command used to open configuration files with the `loader edit` command.
+#
+# VS Code is a convenient option.
+# On Windows, use "code.cmd" if required by your installation.
+editor = "code.cmd"
+
+
+# Optional path to the browser executable used when automatically opening
+# llama.cpp's web interface.
+#
+# Remove this field entirely if you do not want to configure a browser.
+#
+# Example below uses the default Microsoft Edge installation path on Windows.
+browser_path = "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"
