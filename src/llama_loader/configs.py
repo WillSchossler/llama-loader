@@ -28,7 +28,9 @@ class Configs:
 
         self.root: Path = self.__validate(field="root", validation_type="dir", data=data)
         self.editor: str = self.__validate(field="editor", validation_type="str", data=data)
-        self.browser_path: Path | None = self.__validate(field="browser_path", validation_type="file", data=data, required=False)
+        self.browser_path: Path | None = self.__validate(
+            field="browser_path", validation_type="file", data=data, required=False
+        )
 
     def require_browser(self) -> Path:
         """

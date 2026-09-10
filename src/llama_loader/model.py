@@ -195,4 +195,3 @@ class Model:
 
             if not (parent / value).is_file():
                 raise ValueError(f"Flag '{flag}' does not contain a valid file path: {value}")
-

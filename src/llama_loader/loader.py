@@ -74,7 +74,9 @@ class Loader:
                     raise ValueError(f"Invalid model at '{toml_path}'. The name '{model.name}' already exists")
 
                 if model.name in self.profiles:
-                    raise ValueError(f"Invalid model at '{toml_path}'. The name '{model.name}' is already defined as a profile")
+                    raise ValueError(
+                        f"Invalid model at '{toml_path}'. The name '{model.name}' is already defined as a profile"
+                    )
 
                 self.models[model.name] = model
 
@@ -172,7 +174,9 @@ class Loader:
             else:
                 print("\nInstall via homebrew with: 'brew install llama.cpp'")
 
-            raise SystemExit("\nOr compile your own version from source: See more at https://github.com/ggml-org/llama.cpp")
+            raise SystemExit(
+                "\nOr compile your own version from source: See more at https://github.com/ggml-org/llama.cpp"
+            )
 
     def list(self, models: bool, profiles: bool) -> None:
         """
@@ -187,7 +191,9 @@ class Loader:
         def print_models(values):
             print("\nModels:")
             for model in values:
-                print(f"Name: {model.name:<15}||  Profile: {model.profile:>10}  ||   Path: {model.parent.resolve()!s:<70}")
+                print(
+                    f"Name: {model.name:<15}||  Profile: {model.profile:>10}  ||   Path: {model.parent.resolve()!s:<70}"
+                )
 
         def print_profiles(profiles):
             print("\nProfiles:")
@@ -236,49 +242,58 @@ class Loader:
             file_lower = file.lower()
 
             if ".jinja" in file_lower:
-                flags["template"] = f'\n\t--chat-template-file = "{file}"'
+                flags["template"] = f'\n--chat-template-file = "{file}"'
                 files.remove(file)
 
             elif "mmproj" in file_lower:
-                flags["mmproj"] = f'\n\t--mmproj = "{file}"'
+                flags["mmproj"] = f'\n--mmproj = "{file}"'
                 files.remove(file)
 
             elif "mtp" in file_lower:
-                flags["draft"] = f'\n\t--model-draft = "{file}"'
-                flags["spec-type"] = '\n\t--spec-type = "ngram-mod,draft-mtp"'
+                flags["draft"] = f'\n--model-draft = "{file}"'
+                flags["spec-type"] = '\n--spec-type = "ngram-mod,draft-mtp"'
                 files.remove(file)
 
             elif "dflash" in file_lower:
-                flags["draft"] = f'\n\t--model-draft = "{file}"'
-                flags["spec-type"] = '\n\t--spec-type = "ngram-mod,draft-dflash"'
+                flags["draft"] = f'\n--model-draft = "{file}"'
+                flags["spec-type"] = '\n--spec-type = "ngram-mod,draft-dflash"'
                 files.remove(file)
 
         # If there is only one file left, we assume it's the model
         if len(files) == 1:
-            flags["model"] = f'\n\t--model = "{files[0]}"'
+            flags["model"] = f'\n--model = "{files[0]}"'
         else:
-            flags["model"] = '\n\t--model = "DEFINE_MODEL_PATH"'
+            flags["model"] = '\n--model = "DEFINE_MODEL_PATH"'
 
-        toml = textwrap.dedent(f"""
-        # {cwd.name}
-
-
-        # A name used to identify the model. Must be unique.
-        name = "{model_name}"
-
-        # Default profile for the model. Pick one table from "profiles.toml".
-        # The flags from your chosen profile will overwrite the default ones.
-        profile = "default"
+        toml = textwrap.dedent("""        
+            # {folder_name}
 
 
-        # Relative path of your files.
-        [files]{flags["model"]}{flags["mmproj"]}{flags["draft"]}{flags["template"]}
+            # A name used to identify the model. Must be unique.
+            name = "{model_name}"
+
+            # Default profile for the model. Pick one table from "profiles.toml".
+            # The flags from your chosen profile will overwrite the default ones.
+            profile = "default"
 
 
-        # Aditional llama.cpp parameters.
-        [parameters]{flags["spec-type"]}
-        --fit = "on"
-        --jinja = "" """)
+            # Relative path of your files.
+            [files]{model}{mmproj}{draft}{template}
+
+
+            # Additional llama.cpp parameters.
+            [parameters]{spec_type}
+            --fit = "on"
+            --jinja = ""
+        """).format(
+            folder_name=cwd.name,
+            model_name=model_name,
+            model=flags["model"],
+            mmproj=flags["mmproj"],
+            draft=flags["draft"],
+            template=flags["template"],
+            spec_type=flags["spec-type"],
+        )
 
         output = cwd / output_name
         if output.exists():
@@ -407,6 +422,7 @@ def main() -> None:
     cli = CLI()
     loader = Loader(cli.parse_args())
     loader.run()
+
 
 if __name__ == "__main__":
     main()

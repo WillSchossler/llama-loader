@@ -112,4 +112,3 @@ class CLI:
                 i += 2
 
         return result
-
