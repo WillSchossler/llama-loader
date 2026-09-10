@@ -10,7 +10,7 @@ requires-python = ">=3.12"
 dependencies = []
 
 [project.scripts]
-llama-loader = "llama_loader.loader:main"
+loader = "llama_loader.loader:main"
 
 [dependency-groups]
 dev = [

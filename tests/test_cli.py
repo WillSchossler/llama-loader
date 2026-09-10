@@ -1,4 +1,4 @@
-from llama_loader import CLI
+from llama_loader.cli import CLI
 
 
 def test_args_to_dict_converts_flag_with_value():
