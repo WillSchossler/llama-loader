@@ -5,7 +5,7 @@ import textwrap
 import tomllib
 from pathlib import Path
 
-ROOT = Path(__file__).parent.parent.resolve()
+ROOT = Path(__file__).parents[2].resolve()
 
 
 class CLI:
