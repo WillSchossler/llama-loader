@@ -1,9 +1,9 @@
 
-# Gemma4 12B
+# example
 
 
 # A name used to identify the model. Must be unique.
-name = "gemma4-12b"
+name = "example"
 
 # Default profile for the model. Pick one table from "profiles.toml".
 # The flags from your chosen profile will overwrite the default ones.

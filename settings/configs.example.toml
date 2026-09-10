@@ -8,9 +8,9 @@
 #
 # Use "/" as the path separator, including on Windows.
 #
-# The default value points to the repository's example directory so the
-# configuration works immediately after cloning the project.
-root = "./examples"
+# The default value points to the repository's example directory
+# but for real use, make sure to pick an absolute path.
+root = "./example"
 
 
 # Command used to open configuration files with the `loader edit` command.
