@@ -1,25 +1,25 @@
 
-        # Gemma4 12B
+# Gemma4 12B
 
 
-        # A name used to identify the model. Must be unique.
-        name = "gemma4-12b"
+# A name used to identify the model. Must be unique.
+name = "gemma4-12b"
 
-        # Default profile for the model. Pick one table from "profiles.toml".
-        # The flags from your chosen profile will overwrite the default ones.
-        profile = "default"
-
-
-        # Relative path of your files.
-        [files]
-	--model = "model.gguf"
-	--mmproj = "mmproj.gguf"
-	--model-draft = "drafter-mtp.gguf"
-	--chat-template-file = "chat-template.jinja"
+# Default profile for the model. Pick one table from "profiles.toml".
+# The flags from your chosen profile will overwrite the default ones.
+profile = "default"
 
 
-        # Aditional llama.cpp parameters.
-        [parameters]
-	--spec-type = "ngram-mod,draft-mtp"
-        --fit = "on"
-        --jinja = "" 
+# Relative path of your files.
+[files]
+--model = "model.gguf"
+--mmproj = "mmproj.gguf"
+--model-draft = "drafter-mtp.gguf"
+--chat-template-file = "chat-template.jinja"
+
+
+# Additional llama.cpp parameters.
+[parameters]
+--spec-type = "ngram-mod,draft-mtp"
+--fit = "on"
+--jinja = ""

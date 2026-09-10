@@ -1,6 +1,6 @@
 # llama-loader profiles.
 #
-# Copy this file to "profiles.toml" and set your own profiles.
+# Copy/Rename this file to "profiles.toml" and set your own profiles.
 # Profiles are reusable groups of llama.cpp arguments.
 #
 # Flags with a value:

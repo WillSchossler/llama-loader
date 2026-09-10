@@ -1,6 +1,6 @@
 # llama-loader global configuration.
 #
-# Copy this file to "configs.toml" and adjust the values for your system.
+# Copy/Rename this file to "configs.toml" and adjust the values for your system.
 
 
 # Root directory where llama-loader searches for model TOML files.
