@@ -12,10 +12,10 @@ profile = "default"
 
 # Relative path of your files.
 [files]
---model = "model.gguf"
---mmproj = "mmproj.gguf"
---model-draft = "drafter-mtp.gguf"
---chat-template-file = "chat-template.jinja"
+--model = 'model.gguf'
+--mmproj = 'mmproj.gguf'
+--model-draft = 'drafter-mtp.gguf'
+--chat-template-file = 'chat-template.jinja'
 
 
 # Additional llama.cpp parameters.

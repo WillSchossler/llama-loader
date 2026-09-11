@@ -242,28 +242,28 @@ class Loader:
             file_lower = file.lower()
 
             if ".jinja" in file_lower:
-                flags["template"] = f'\n--chat-template-file = "{file}"'
+                flags["template"] = f"\n--chat-template-file = '{file}'"
                 files.remove(file)
 
             elif "mmproj" in file_lower:
-                flags["mmproj"] = f'\n--mmproj = "{file}"'
+                flags["mmproj"] = f"\n--mmproj = '{file}'"
                 files.remove(file)
 
             elif "mtp" in file_lower:
-                flags["draft"] = f'\n--model-draft = "{file}"'
+                flags["draft"] = f"\n--model-draft = '{file}'"
                 flags["spec-type"] = '\n--spec-type = "ngram-mod,draft-mtp"'
                 files.remove(file)
 
             elif "dflash" in file_lower:
-                flags["draft"] = f'\n--model-draft = "{file}"'
+                flags["draft"] = f"\n--model-draft = '{file}'"
                 flags["spec-type"] = '\n--spec-type = "ngram-mod,draft-dflash"'
                 files.remove(file)
 
         # If there is only one file left, we assume it's the model
         if len(files) == 1:
-            flags["model"] = f'\n--model = "{files[0]}"'
+            flags["model"] = f"\n--model = '{files[0]}'"
         else:
-            flags["model"] = '\n--model = "DEFINE_MODEL_PATH"'
+            flags["model"] = "\n--model = 'DEFINE_MODEL_PATH'"
 
         toml = textwrap.dedent("""        
             # {folder_name}
