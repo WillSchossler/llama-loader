@@ -1,4 +1,3 @@
-
 import pytest
 
 from llama_loader.cli import CLI
@@ -49,7 +48,7 @@ def test_list_command_sets_models_flag():
     cli = CLI()
 
     result = cli.parser.parse_args(["list", "-m"])
-    
+
     assert result.command == "list"
     assert result.models
 
@@ -58,7 +57,7 @@ def test_list_command_sets_profiles_flag():
     cli = CLI()
 
     result = cli.parser.parse_args(["list", "-p"])
-    
+
     assert result.command == "list"
     assert result.profiles
 
@@ -84,7 +83,7 @@ def test_show_command_parses_optional_profile():
     cli = CLI()
 
     result = cli.parser.parse_args(["show", "gemma", "xhigh"])
-    
+
     assert result.command == "show"
     assert result.model == "gemma"
     assert result.profile == "xhigh"
