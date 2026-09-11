@@ -3,28 +3,26 @@ import argparse
 
 class CLI:
     """
-    Defines and manages the command-line interface for llama-loader.
+    Defines and parses llama-loader's command-line interface.
 
-    The CLI is responsible for declaring the available commands, arguments,
-    and options accepted by the application, as well as converting raw
-    command-line input into structured data consumed by the application.
+    The CLI declares the application's commands, arguments, and options,
+    parses user input into an argparse.Namespace, and converts passthrough
+    llama.cpp arguments into a flag/value mapping.
 
-    The class does not perform the operations associated with the commands.
-    It only defines the command-line interface and parses user input.
+    It does not execute application commands or manage model state.
 
     Attributes:
-        parser: Root ArgumentParser responsible for parsing the command-line arguments.
+        parser: Root ArgumentParser used to parse command-line arguments.
 
     Methods:
-        parse_args: Parses the command-line arguments provided by the user.
-        args_to_dict: Converts a sequence of llama.cpp command-line arguments
-            into a dictionary of flags and values.
+        parse_args: Parse the command-line arguments provided by the user.
+        args_to_dict: Convert llama.cpp passthrough arguments into a flag/value mapping.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.parser = argparse.ArgumentParser(
             description="Load and manage llama.cpp models via llama-server.",
-            prog="llama-loader",
+            prog="loader",
         )
         subparsers = self.parser.add_subparsers(dest="command", required=True, help="Available commands")
 
@@ -51,7 +49,7 @@ class CLI:
 
     def parse_args(self) -> argparse.Namespace:
         """
-        Parses the command-line arguments provided by the user.
+        Parse the command-line arguments provided by the user.
 
         Returns:
             An argparse.Namespace with the selected command, its options and
@@ -96,7 +94,7 @@ class CLI:
             key = args[i]
 
             if not key.startswith("-"):
-                raise ValueError(f"{key} is not a valid llama.cpp flag.")
+                raise ValueError(f"llama.cpp flags should start with '-', got {key!r}.")
 
             if i + 1 >= len(args):
                 result[key] = ""
