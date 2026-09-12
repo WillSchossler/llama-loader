@@ -1,28 +1,28 @@
-import tomllib
 from pathlib import Path
+import tomllib
 
 
 class Profiles:
     """
-    Loads and validates the profiles defined in a TOML file.
+    Loads and validates profiles defined in a TOML file.
 
     The class provides limited mapping-like access to validated profiles,
-    allowing profile lookup and iteration without exposing the full mutable
-    dictionary interface.
+    allowing profile lookup and iteration without exposing the internal
+    profiles dictionary directly.
 
     The default profile must define the settings required internally by
     llama-loader.
 
     Args:
-        path: Path to the profiles TOML file.
+        profiles_path: Path to the profiles TOML file.
 
     Methods:
-        __getitem__: Return a profile by name.
+        __getitem__: Return a copy of a profile by name.
         __iter__: Iterate over profile names.
     """
 
-    def __init__(self, path: Path):
-        with path.open("rb") as file:
+    def __init__(self, profiles_path: Path) -> None:
+        with profiles_path.open("rb") as file:
             data = tomllib.load(file)
 
         self.__validate(data)
@@ -38,23 +38,21 @@ class Profiles:
         """
         Validate the parsed profiles data.
 
-        Ensures the data is a dictionary that defines a ``default`` profile, that
-        every profile is a table of flags (each flag starting with ``"-"``), and
-        that the default profile defines ``--host`` (non-empty string) and
-        ``--port`` (integer).
+        Ensures that the data defines a ``default`` profile, every profile is
+        a table of flags, every flag starts with ``"-"``, and the default
+        profile defines a non-empty ``--host`` string and an integer ``--port``.
 
         Args:
-            data: The parsed profiles dictionary.
+            data: Parsed profiles dictionary.
 
         Raises:
-            TypeError: If the data or a profile is not a dictionary, or if
-                ``--host``/``--port`` have the wrong type.
-            ValueError: If the default profile is missing, a flag name does not
-                start with ``"-"``, or a required default flag is missing/empty.
+            TypeError: If the profiles data or a profile is not a dictionary,
+                or if ``--host`` or ``--port`` has the wrong type.
+            ValueError: If the default profile is missing, a flag does not
+                start with ``"-"``, or a required default flag is missing or empty.
         """
-
         if not isinstance(data, dict):
-            raise TypeError("Profiles data must be a dictionary.")
+            raise TypeError("Profiles data must be a dictionary")
 
         if "default" not in data:
             raise ValueError("Missing required field 'default'")
@@ -65,7 +63,7 @@ class Profiles:
 
             for flag in flags:
                 if not flag.startswith("-"):
-                    raise ValueError(f"'{flag}' from profile '{profile}' should start with '-'.")
+                    raise ValueError(f"'{flag}' from profile '{profile}' must start with '-'")
 
         default = data["default"]
         missing = {"--host", "--port"} - default.keys()
@@ -78,10 +76,10 @@ class Profiles:
         port = default["--port"]
 
         if not isinstance(host, str):
-            raise TypeError(f"Default '--host' must be a string. Got '{type(host).__name__}'.")
+            raise TypeError(f"Default '--host' must be a string. Got {host!r} ({type(host).__name__})")
 
         if not host.strip():
-            raise ValueError("Default '--host' cannot be empty.")
+            raise ValueError("Default '--host' cannot be empty")
 
         if type(port) is not int:
-            raise TypeError(f"Default '--port' must be an integer. Got '{type(port).__name__}'.")
+            raise TypeError(f"Default '--port' must be an integer. Got {port!r} ({type(port).__name__})")
