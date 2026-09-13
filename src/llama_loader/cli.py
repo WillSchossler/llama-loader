@@ -21,7 +21,7 @@ class CLI:
 
     def __init__(self) -> None:
         self.parser = argparse.ArgumentParser(
-            description="Load and manage llama.cpp models via llama-server.",
+            description="Load and manage llama.cpp models via llama-server",
             prog="loader",
         )
         subparsers = self.parser.add_subparsers(dest="command", required=True, help="Available commands")

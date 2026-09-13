@@ -62,7 +62,7 @@ class Configs:
         self,
         field: str,
         validation_type: str,
-        data: dict,
+        data: dict[str, dict[str, object]],
         required: bool = True,
     ):
         """

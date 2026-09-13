@@ -17,7 +17,7 @@ class Profiles:
         profiles_path: Path to the profiles TOML file.
 
     Methods:
-        __getitem__: Return a profile by name.
+        __getitem__: Return a copy of a profile by name.
         __iter__: Iterate over profile names.
     """
 
@@ -26,15 +26,15 @@ class Profiles:
             data = tomllib.load(file)
 
         self.__validate(data)
-        self.__data: dict[str, dict[str, object]] = data
+        self.__data: dict = data
 
-    def __getitem__(self, item: str) -> dict[str, object]:
-        return self.__data[item]
+    def __getitem__(self, item: str) -> dict:
+        return self.__data[item].copy()
 
     def __iter__(self):
         return iter(self.__data)
 
-    def __validate(self, data: dict[str, dict[str, object]]) -> None:
+    def __validate(self, data: dict) -> None:
         """
         Validate the parsed profiles data.
 
