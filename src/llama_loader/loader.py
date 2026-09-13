@@ -5,10 +5,10 @@ import tomllib
 from argparse import Namespace
 from pathlib import Path
 
-from llama_loader.cli import CLI
-from llama_loader.configs import Configs
-from llama_loader.model import Model
-from llama_loader.profiles import Profiles
+from .cli import CLI
+from .configs import Configs
+from .model import Model
+from .profiles import Profiles
 
 ROOT = Path(__file__).parents[2].resolve()
 
@@ -51,9 +51,9 @@ class Loader:
         open_browser: Launch the configured browser for the llama-server interface.
     """
 
-    REQUIRED_FIELDS = frozenset({"name", "files", "profile", "parameters"})
+    REQUIRED_MODEL_FIELDS = frozenset({"name", "files", "profile", "parameters"})
 
-    def __init__(self, args: Namespace):
+    def __init__(self, args: Namespace) -> None:
         self.args = args
         self.models: dict[str, Model] = {}
         self.configs = Configs(ROOT / "settings" / "configs.toml")
@@ -66,8 +66,8 @@ class Loader:
             with toml_path.open("rb") as file:
                 model_toml = tomllib.load(file)
 
-            # Will consider a valid model ONLY if the .toml have a name, file, profile and parameter set
-            if self.REQUIRED_FIELDS <= model_toml.keys():
+            # Only model-like TOML files containing all required sections are loaded
+            if self.REQUIRED_MODEL_FIELDS <= model_toml.keys():
                 model = Model(model_toml, toml_path, toml_path.parent, self.profiles)
 
                 if model.name in self.models:
@@ -83,17 +83,23 @@ class Loader:
     def start(
         self,
         model: str,
-        llamaargs: list | None = None,
+        llamaargs: list[str] | None = None,
         b: bool = False,
         i: bool = False,
     ) -> None:
         """
         Configure and start llama-server for a selected model.
 
-        The model configuration is used as the base for the final llama.cpp
-        arguments. An optional profile may be provided as the first argument after
-        the model, followed by arbitrary llama.cpp flags. These values are applied
-        as overrides before the final command is built.
+        The model's resolved arguments are used as the base configuration. An
+        optional profile may be provided as the first argument after the model,
+        followed by arbitrary llama.cpp flags. Profile and command-line overrides
+        update the selected model's runtime arguments before the final command is
+        built.
+
+        ``start`` intentionally mutates the selected model's arguments because
+        starting llama-server is the terminal operation of the loader's command
+        workflow. Other inspection operations such as ``show`` build temporary
+        argument mappings instead.
 
         The ``-b`` and ``-i`` options belong to llama-loader, not llama.cpp, and must
         appear before the model name. All arguments after the model are intentionally
@@ -134,14 +140,14 @@ class Loader:
         selected_model = self.models[model]
 
         if llamaargs:
-            # Copy is made to prevent changes in the mutable
-            llamaargs: list[str] = llamaargs.copy()
+            # Work on a copy so parsing does not mutate the caller's argument list
+            llamaargs = llamaargs.copy()
             profile_arg = llamaargs[0]
 
             if profile_arg in self.profiles:
                 llamaargs.pop(0)
                 new_profile = self.profiles[profile_arg]
-                selected_model.build_arguments(new_profile)
+                selected_model.arguments = selected_model.build_arguments(new_profile)
 
             elif not profile_arg.startswith("-"):
                 raise ValueError(f"{profile_arg} is not a valid profile or llama.cpp flag.")
@@ -188,14 +194,14 @@ class Loader:
                 is hidden). When both are unset, both sections are shown.
         """
 
-        def print_models(values):
+        def print_models(values) -> None:
             print("\nModels:")
             for model in values:
                 print(
                     f"Name: {model.name:<15}||  Profile: {model.profile:>10}  ||   Path: {model.parent.resolve()!s:<70}"
                 )
 
-        def print_profiles(profiles):
+        def print_profiles(profiles) -> None:
             print("\nProfiles:")
             for profile in profiles:
                 if profile != "default":
@@ -318,7 +324,7 @@ class Loader:
         """
 
         if file in ("configs", "profiles"):
-            path = ROOT / Path(f"{file}.toml")
+            path = ROOT / "settings" / f"{file}.toml"
         elif file in self.models:
             path = self.models[file].path
         else:
@@ -334,15 +340,18 @@ class Loader:
         Print the resolved arguments for a model, or the flags of a profile.
 
         When ``model`` is a profile name, that profile's flags are shown. When it
-        is a model, the model's final arguments are shown; if a ``profile`` is
-        also given, the arguments are recomputed against that profile first.
+        is a model name, its resolved arguments are displayed using either its
+        configured profile or the optional profile supplied by the user.
+
+        Model arguments are resolved into a temporary mapping, so this operation
+        does not modify the model's stored runtime arguments.
 
         Args:
             model: A model name or a profile name.
-            profile: Optional profile to apply to the model.
+            profile: Optional profile to apply temporarily when displaying a model.
 
         Raises:
-            ValueError: If the given model/profile name is unknown.
+            ValueError: If the model or profile name is unknown.
         """
 
         if model in self.profiles:
@@ -354,15 +363,17 @@ class Loader:
 
         elif model in self.models:
             selected_model = self.models[model]
+            selected_profile = self.profiles[selected_model.profile]
 
             if profile:
                 if profile not in self.profiles:
                     raise ValueError(f"Unknown profile: {profile}")
 
-                else:
-                    selected_model.build_arguments(self.profiles[profile])
+                selected_profile = self.profiles[profile]
 
-            for key, value in selected_model.arguments.items():
+            arguments = selected_model.build_arguments(selected_profile)
+
+            for key, value in arguments.items():
                 if value != "":
                     print(f"{key}: {value}")
                 else:
