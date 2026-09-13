@@ -3,16 +3,12 @@ import subprocess
 import textwrap
 import tomllib
 from argparse import Namespace
-from collections.abc import Iterable
 from pathlib import Path
 
 from .cli import CLI
 from .configs import Configs
 from .model import Model
 from .profiles import Profiles
-
-PROJECT_ROOT = Path(__file__).parents[2].resolve()
-SETTINGS_DIR = PROJECT_ROOT / "settings"
 
 
 class Loader:
@@ -46,10 +42,12 @@ class Loader:
         run: Dispatch the command selected through the CLI.
     """
 
+    SETTINGS_DIR = Path(__file__).parents[2].resolve() / "settings"
+
     def __init__(self, args: Namespace) -> None:
         self.args = args
-        self.configs = Configs(SETTINGS_DIR / "configs.toml")
-        self.profiles = Profiles(SETTINGS_DIR / "profiles.toml")
+        self.configs = Configs(self.SETTINGS_DIR / "configs.toml")
+        self.profiles = Profiles(self.SETTINGS_DIR / "profiles.toml")
         self.models: dict[str, Model] = self.__load_models()
 
     def __load_models(self) -> dict[str, Model]:
@@ -136,7 +134,7 @@ class Loader:
         selected_model = self.models[model_name]
 
         if llama_args:
-            # Work on a copy so parsing does not mutate the caller's argument list.
+            # Work on a copy so parsing does not mutate the caller's argument list
             llama_args = llama_args.copy()
             first_arg = llama_args[0]
 
@@ -171,12 +169,12 @@ class Loader:
             profiles_only: Whether to print only the profiles section.
         """
 
-        def print_models(values: Iterable[Model]) -> None:
+        def print_models(values) -> None:
             print("\nModels:")
             for model in values:
                 print(f"Name: {model.name:<15} || Profile: {model.profile:>10} || Path: {model.parent.resolve()!s:<70}")
 
-        def print_profiles(names: Iterable[str]) -> None:
+        def print_profiles(names) -> None:
             print("\nProfiles:")
             for name in names:
                 if name != "default":
@@ -243,11 +241,8 @@ class Loader:
                 flags["spec-type"] = '\n--spec-type = "ngram-mod,draft-dflash"'
                 files.remove(file)
 
-        # If exactly one unclassified file remains, assume it is the main model.
-        if len(files) == 1:
-            flags["model"] = f"\n--model = '{files[0]}'"
-        else:
-            flags["model"] = "\n--model = 'DEFINE_MODEL_PATH'"
+        # If exactly one unclassified file remains, assume it is the main model. Otherwise use a placeholder
+        flags["model"] = f"\n--model = '{files[0]}'" if len(files) == 1 else "\n--model = 'DEFINE_MODEL_PATH'"
 
         toml = textwrap.dedent(
             """
@@ -298,7 +293,7 @@ class Loader:
             FileNotFoundError: If the resolved configuration file does not exist.
         """
         if name in ("configs", "profiles"):
-            path = SETTINGS_DIR / f"{name}.toml"
+            path = self.SETTINGS_DIR / f"{name}.toml"
         elif name in self.models:
             path = self.models[name].path
         else:
