@@ -39,7 +39,7 @@ class Loader:
 
     Methods:
         start: Configure and start llama-server for a selected model.
-        list_items: Display the available models and profiles.
+        roll: Display the available models and profiles.
         init: Generate a draft model configuration from files in a directory.
         edit: Open an application or model configuration in the configured editor.
         show: Display a profile or the resolved arguments for a model.
@@ -159,7 +159,7 @@ class Loader:
         command = selected_model.build_command()
         self.__run_server(command)
 
-    def list_items(self, models_only: bool, profiles_only: bool) -> None:
+    def roll(self, models_only: bool, profiles_only: bool) -> None:
         """
         Print the available models and profiles.
 
@@ -174,10 +174,7 @@ class Loader:
         def print_models(values: Iterable[Model]) -> None:
             print("\nModels:")
             for model in values:
-                print(
-                    f"Name: {model.name:<15} || Profile: {model.profile:>10} || "
-                    f"Path: {model.parent.resolve()!s:<70}"
-                )
+                print(f"Name: {model.name:<15} || Profile: {model.profile:>10} || Path: {model.parent.resolve()!s:<70}")
 
         def print_profiles(names: Iterable[str]) -> None:
             print("\nProfiles:")
@@ -223,11 +220,7 @@ class Loader:
             "spec-type": "",
         }
 
-        files = [
-            file.name
-            for file in cwd.iterdir()
-            if file.is_file() and file.suffix.lower() in (".gguf", ".jinja")
-        ]
+        files = [file.name for file in cwd.iterdir() if file.is_file() and file.suffix.lower() in (".gguf", ".jinja")]
 
         for file in files.copy():
             file_lower = file.lower()
@@ -363,7 +356,7 @@ class Loader:
         """
         match self.args.command:
             case "list":
-                self.list_items(models_only=self.args.models, profiles_only=self.args.profiles)
+                self.roll(models_only=self.args.models, profiles_only=self.args.profiles)
             case "edit":
                 self.edit(name=self.args.file)
             case "init":
