@@ -61,7 +61,7 @@ class Model:
 
         Raises:
             ValueError: If ``--host`` is empty or ``--port`` is not a valid port.
-            TypeError: If ``--host`` is not a string or ``--port`` is not a number.
+            TypeError: If ``--host`` is not a string or ``--port`` has an invalid type.
         """
         host = self.arguments["--host"]
 
@@ -77,7 +77,7 @@ class Model:
             try:
                 port = int(port)
             except ValueError:
-                raise ValueError(f"Invalid port: {port!r}") from None
+                raise ValueError(f"Invalid port: {port!r}")
 
         if type(port) is not int:
             raise TypeError(f"Flag '--port' must be an integer. Got {port!r} ({type(port).__name__})")
