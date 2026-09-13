@@ -44,7 +44,7 @@ class Model:
 
         self.name: str = model["name"]
         self.profile: str = model["profile"]
-        self.parameters: dict[str, object] = model["parameters"]
+        self.parameters: dict[str, object] = model["parameters"].copy()
         self.files: dict[str, Path] = {flag: parent / file_path for flag, file_path in model["files"].items()}
 
         self.arguments: dict[str, object] = self.build_arguments(self.profiles[self.profile])

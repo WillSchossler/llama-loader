@@ -352,3 +352,21 @@ def test_build_command_returns_expected_command(tmp_path):
         "--model",
         str(tmp_path / "model.gguf"),
     ]
+
+
+def test_model_parameters_are_isolated_from_source_data(tmp_path):
+    model_data = create_valid_model_data()
+    model = create_model(tmp_path, model_data)
+
+    model_data["parameters"]["--temp"] = 999
+
+    assert model.parameters["--temp"] == 0.7
+
+
+def test_model_parameters_do_not_mutate_source_data(tmp_path):
+    model_data = create_valid_model_data()
+    model = create_model(tmp_path, model_data)
+
+    model.parameters["--temp"] = 999
+
+    assert model_data["parameters"]["--temp"] == 0.7
