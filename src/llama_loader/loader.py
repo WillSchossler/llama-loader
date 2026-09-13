@@ -3,6 +3,7 @@ import subprocess
 import textwrap
 import tomllib
 from argparse import Namespace
+from collections.abc import Iterable
 from pathlib import Path
 
 from .cli import CLI
@@ -18,19 +19,13 @@ class Loader:
     """
     Coordinates llama-loader's application workflow.
 
-    The Loader acts as the main orchestration layer of the application. It loads
-    the global configuration and profiles, discovers and validates model
-    configurations, and dispatches parsed CLI commands to their corresponding
-    operations.
-
-    It coordinates higher-level operations such as starting llama-server,
-    listing models and profiles, generating draft model configurations, opening
-    configuration files for editing, displaying resolved model arguments, and
-    optionally launching the configured browser.
+    The Loader is the application's orchestration layer. It loads the global
+    configuration and profiles, discovers model configurations, dispatches
+    parsed CLI commands, and coordinates operations involving models, the
+    configured editor and browser, and the llama-server process.
 
     Model-specific validation and argument construction are delegated to Model,
-    while configuration and profile validation are handled by Configs and
-    Profiles respectively.
+    while Configs and Profiles validate their own configuration data.
 
     Args:
         args: Parsed command-line arguments used to determine the requested
@@ -38,18 +33,17 @@ class Loader:
 
     Attributes:
         args: Parsed command-line arguments.
-        models: Discovered models mapped by their unique names.
         configs: Validated global application configuration.
         profiles: Validated collection of available profiles.
+        models: Discovered models mapped by their unique names.
 
     Methods:
         start: Configure and start llama-server for a selected model.
-        list: Display the available models and profiles.
+        list_items: Display the available models and profiles.
         init: Generate a draft model configuration from files in a directory.
         edit: Open an application or model configuration in the configured editor.
         show: Display a profile or the resolved arguments for a model.
         run: Dispatch the command selected through the CLI.
-        open_browser: Launch the configured browser for the llama-server interface.
     """
 
     def __init__(self, args: Namespace) -> None:
@@ -59,167 +53,141 @@ class Loader:
         self.models: dict[str, Model] = self.__load_models()
 
     def __load_models(self) -> dict[str, Model]:
-        models_root = self.configs.root
-        toml_paths = models_root.rglob("*.toml")
+        """
+        Discover and load model configurations from the configured models root.
 
+        TOML files that do not contain all fields required by Model are ignored.
+        Model-like files are validated by Model before being added to the collection.
+
+        Returns:
+            Discovered models mapped by their unique names.
+
+        Raises:
+            ValueError: If a model is invalid, duplicates another model name, or
+                uses a name already defined as a profile.
+            TypeError: If a model-like configuration contains an invalid field type.
+        """
         models: dict[str, Model] = {}
 
-        for toml_path in toml_paths:
+        for toml_path in self.configs.root.rglob("*.toml"):
             with toml_path.open("rb") as file:
                 model_toml = tomllib.load(file)
 
-            if Model.REQUIRED_MODEL_FIELDS <= model_toml.keys():
-                model = Model(model_toml, toml_path, toml_path.parent, self.profiles)
+            if not Model.REQUIRED_MODEL_FIELDS <= model_toml.keys():
+                continue
 
-                if model.name in models:
-                    raise ValueError(f"Invalid model at '{toml_path}'. The name '{model.name}' already exists")
+            model = Model(model_toml, toml_path, toml_path.parent, self.profiles)
 
-                if model.name in self.profiles:
-                    raise ValueError(
-                        f"Invalid model at '{toml_path}'. The name '{model.name}' is already defined as a profile"
-                    )
+            if model.name in models:
+                raise ValueError(f"Invalid model at {str(toml_path)!r}. The name {model.name!r} already exists")
 
-                models[model.name] = model
-
-        return models
-
-
-    def run(self) -> None:
-        """
-        Dispatch the parsed command to its operation.
-
-        Reads the selected subcommand and its options from ``self.args`` and
-        calls the matching loader method.
-        """
-        match self.args.command:
-            case "list":
-                self.list_items(self.args.models, self.args.profiles)
-            case "edit":
-                self.edit(self.args.file)
-            case "init":
-                self.init(Path.cwd())
-            case "show":
-                self.show(self.args.model, self.args.profile)
-            case "start":
-                self.start(
-                    self.args.model,
-                    self.args.llamaargs,
-                    self.args.b,
-                    self.args.i,
+            if model.name in self.profiles:
+                raise ValueError(
+                    f"Invalid model at {str(toml_path)!r}. The name {model.name!r} is already defined as a profile"
                 )
 
+            models[model.name] = model
+
+        return models
 
     def start(
         self,
         model_name: str,
-        llamaargs: list[str] | None = None,
-        b: bool = False,
-        i: bool = False,
+        llama_args: list[str] | None = None,
+        open_browser: bool = False,
+        incognito: bool = False,
     ) -> None:
         """
         Configure and start llama-server for a selected model.
 
         The model's resolved arguments are used as the base configuration. An
-        optional profile may be provided as the first argument after the model,
+        optional profile may be supplied as the first argument after the model,
         followed by arbitrary llama.cpp flags. Profile and command-line overrides
-        update the selected model's runtime arguments before the final command is
-        built.
+        update the selected model's arguments before the final command is built.
 
         ``start`` intentionally mutates the selected model's arguments because
-        starting llama-server is the terminal operation of the loader's command
-        workflow. Other inspection operations such as ``show`` build temporary
-        argument mappings instead.
+        starting llama-server is the terminal operation of the loader workflow.
+        Inspection operations such as ``show`` resolve arguments into temporary
+        mappings instead.
 
-        The ``-b`` and ``-i`` options belong to llama-loader, not llama.cpp, and must
-        appear before the model name. All arguments after the model are intentionally
-        captured as llama.cpp arguments, allowing them to be forwarded without
-        requiring llama-loader to know or define every llama.cpp option. Consequently,
-        ``-b`` and ``-i`` appearing after the model are treated as llama.cpp flags.
-        This ordering is intentional and is part of the CLI grammar.
+        The ``-b`` and ``-i`` options belong to llama-loader and must appear before
+        the model name. Arguments after the model are intentionally captured as
+        llama.cpp arguments, so the same flags appearing after the model are passed
+        through to llama.cpp.
 
-        When ``-b`` is enabled, the configured browser is opened before starting
-        llama-server. When ``-i`` is enabled, the browser is opened in incognito mode.
-        These options are mutually exclusive at the CLI level.
-
-        The browser is intentionally opened before the server process so the web
-        interface can be used to observe the model loading state. Configuration,
-        browser, and address validation are performed before llama-server is started.
-
-        The llama-server process remains attached until it exits or is interrupted.
-        A keyboard interrupt terminates the server process before returning control
-        to the user.
+        When requested, the browser is opened before llama-server so its interface
+        can show the model loading state.
 
         Args:
-            model: Name of the model to start.
-            llamaargs: Optional profile and llama.cpp arguments supplied after the
+            model_name: Name of the model to start.
+            llama_args: Optional profile and llama.cpp arguments supplied after the
                 model name.
-            b: Whether to open the configured browser.
-            i: Whether to open the configured browser in incognito mode.
+            open_browser: Whether to open the configured browser.
+            incognito: Whether to open the browser in incognito mode.
 
         Raises:
             ValueError: If the model is unknown, an invalid profile-like argument is
                 provided, or required runtime configuration is invalid.
-            FileNotFoundError: If required configured resources cannot be found.
             SystemExit: If the llama-server executable cannot be found.
         """
-
         if model_name not in self.models:
-            raise ValueError(f"Unknown model: {model_name}.")
+            raise ValueError(f"Unknown model: {model_name}")
 
         selected_model = self.models[model_name]
 
-        if llamaargs:
-            # Work on a copy so parsing does not mutate the caller's argument list
-            llamaargs = llamaargs.copy()
-            profile_arg = llamaargs[0]
+        if llama_args:
+            # Work on a copy so parsing does not mutate the caller's argument list.
+            llama_args = llama_args.copy()
+            first_arg = llama_args[0]
 
-            if profile_arg in self.profiles:
-                llamaargs.pop(0)
-                selected_profile = self.profiles[profile_arg]
+            if first_arg in self.profiles:
+                llama_args.pop(0)
+                selected_profile = self.profiles[first_arg]
                 selected_model.arguments = selected_model.build_arguments(selected_profile)
 
-            elif not profile_arg.startswith("-"):
-                raise ValueError(f"{profile_arg} is not a valid profile or llama.cpp flag.")
+            elif not first_arg.startswith("-"):
+                raise ValueError(f"{first_arg!r} is not a valid profile or llama.cpp flag")
 
-            overrides = CLI.args_to_dict(llamaargs)
+            overrides = CLI.args_to_dict(llama_args)
             selected_model.arguments.update(overrides)
 
-        if b or i:
+        if open_browser or incognito:
             browser_path = self.configs.require_browser()
             browser_host, browser_port = selected_model.require_address()
-
-            self.__open_browser(browser_path, browser_host, browser_port, i)
+            self.__open_browser(browser_path, browser_host, browser_port, incognito)
 
         command = selected_model.build_command()
         self.__run_server(command)
 
-
-    def list_items(self, models: bool, profiles: bool) -> None:
+    def list_items(self, models_only: bool, profiles_only: bool) -> None:
         """
         Print the available models and profiles.
 
+        The default profile is omitted from profile listings. When neither filter
+        is enabled, both models and profiles are printed.
+
         Args:
-            models: Whether to print the models section.
-            profiles: Whether to print the profiles section (the default profile
-                is hidden). When both are unset, both sections are shown.
+            models_only: Whether to print only the models section.
+            profiles_only: Whether to print only the profiles section.
         """
 
-        def print_models(values) -> None:
+        def print_models(values: Iterable[Model]) -> None:
             print("\nModels:")
             for model in values:
                 print(
-                    f"Name: {model.name:<15}||  Profile: {model.profile:>10}  ||   Path: {model.parent.resolve()!s:<70}"
+                    f"Name: {model.name:<15} || Profile: {model.profile:>10} || "
+                    f"Path: {model.parent.resolve()!s:<70}"
                 )
 
-        def print_profiles(profiles) -> None:
+        def print_profiles(names: Iterable[str]) -> None:
             print("\nProfiles:")
-            for profile in profiles:
-                if profile != "default":
-                    print(profile)
+            for name in names:
+                if name != "default":
+                    print(name)
 
-        if models:
+        if models_only:
             print_models(self.models.values())
-        elif profiles:
+        elif profiles_only:
             print_profiles(self.profiles)
         else:
             print_models(self.models.values())
@@ -227,22 +195,26 @@ class Loader:
 
     def init(self, cwd: Path) -> None:
         """
-        Generate a draft model configuration in the current directory.
+        Generate a draft model configuration in a directory.
 
-        Scans ``cwd`` for ``.gguf`` and ``.jinja`` files, classifies them into
-        model / mmproj / draft / template slots, and writes a starter ``.toml``
-        (named after the folder) that the user can then adjust.
+        Scans ``cwd`` for ``.gguf`` and ``.jinja`` files, classifies recognizable
+        auxiliary files, and writes a starter TOML configuration named after the
+        directory. If exactly one unclassified model file remains, it is selected
+        automatically; otherwise a placeholder is written for the user to replace.
 
         Args:
             cwd: Directory containing the model files.
 
         Raises:
-            SystemExit: If a configuration file for the folder already exists.
+            SystemExit: If the output configuration already exists.
         """
-
         stem = cwd.name.replace(" ", "-")
         model_name = "-".join(stem.split("-")[:2]).lower()
-        output_name = f"{stem}.toml"
+        output = cwd / f"{stem}.toml"
+
+        if output.exists():
+            raise SystemExit(f"Error: {output.name!r} already exists")
+
         flags: dict[str, str] = {
             "model": "",
             "mmproj": "",
@@ -251,17 +223,16 @@ class Loader:
             "spec-type": "",
         }
 
-        output = cwd / output_name
-        if output.exists():
-            raise SystemExit(f"Error: '{output.name}' already exists")
-
-        # Search only for files with ".gguf" or ".jinja" extension
-        files = [file.name for file in cwd.iterdir() if file.is_file() and file.suffix.lower() in (".gguf", ".jinja")]
+        files = [
+            file.name
+            for file in cwd.iterdir()
+            if file.is_file() and file.suffix.lower() in (".gguf", ".jinja")
+        ]
 
         for file in files.copy():
             file_lower = file.lower()
 
-            if ".jinja" in file_lower:
+            if file_lower.endswith(".jinja"):
                 flags["template"] = f"\n--chat-template-file = '{file}'"
                 files.remove(file)
 
@@ -279,13 +250,14 @@ class Loader:
                 flags["spec-type"] = '\n--spec-type = "ngram-mod,draft-dflash"'
                 files.remove(file)
 
-        # If there is only one file left, we assume it's the model
+        # If exactly one unclassified file remains, assume it is the main model.
         if len(files) == 1:
             flags["model"] = f"\n--model = '{files[0]}'"
         else:
             flags["model"] = "\n--model = 'DEFINE_MODEL_PATH'"
 
-        toml = textwrap.dedent("""        
+        toml = textwrap.dedent(
+            """
             # {folder_name}
 
 
@@ -305,7 +277,8 @@ class Loader:
             [parameters]{spec_type}
             --fit = "on"
             --jinja = ""
-        """).format(
+            """
+        ).format(
             folder_name=cwd.name,
             model_name=model_name,
             model=flags["model"],
@@ -321,84 +294,105 @@ class Loader:
         """
         Open a configuration file in the configured editor.
 
-        ``file`` may be one of the global config files (``configs`` / ``profiles``)
-        or the name of a discovered model.
+        ``name`` may identify one of the global configuration files
+        (``configs`` or ``profiles``) or a discovered model.
 
         Args:
-            file: A global config name or a model name.
+            name: Global configuration name or model name.
 
         Raises:
-            ValueError: If the name is neither a global config nor a model.
-            FileNotFoundError: If the resolved file does not exist.
+            ValueError: If ``name`` identifies neither a global configuration nor a model.
+            FileNotFoundError: If the resolved configuration file does not exist.
         """
-
         if name in ("configs", "profiles"):
             path = SETTINGS_DIR / f"{name}.toml"
         elif name in self.models:
             path = self.models[name].path
         else:
-            raise ValueError(f"{name} is not a valid model or file.")
+            raise ValueError(f"{name!r} is not a valid model or configuration")
 
-        if path.is_file():
-            subprocess.Popen([self.configs.editor, str(path)])
-        else:
-            raise FileNotFoundError(f"{name} doesn't exist.")
+        if not path.is_file():
+            raise FileNotFoundError(f"{name!r} does not exist")
+
+        subprocess.Popen([self.configs.editor, str(path)])
 
     def show(self, name: str, profile: str | None = None) -> None:
         """
-        Print the resolved arguments for a model, or the flags of a profile.
+        Print a profile or the resolved arguments for a model.
 
-        When ``model`` is a profile name, that profile's flags are shown. When it
-        is a model name, its resolved arguments are displayed using either its
-        configured profile or the optional profile supplied by the user.
+        When ``name`` identifies a profile, that profile's flags are printed.
+        When it identifies a model, arguments are resolved using either the model's
+        configured profile or the optional profile override.
 
         Model arguments are resolved into a temporary mapping, so this operation
-        does not modify the model's stored runtime arguments.
+        does not modify the model's stored arguments.
 
         Args:
-            model: A model name or a profile name.
+            name: Model name or profile name.
             profile: Optional profile to apply temporarily when displaying a model.
 
         Raises:
-            ValueError: If the model or profile name is unknown.
+            ValueError: If the model or profile is unknown, or if a profile override
+                is supplied while displaying a profile.
         """
-
         if name in self.profiles:
+            if profile is not None:
+                raise ValueError("A profile override can only be applied when showing a model")
+
             self.__print_arguments(self.profiles[name])
+            return
 
-        elif name in self.models:
-            selected_model = self.models[name]
-            selected_profile = self.profiles[selected_model.profile]
+        if name not in self.models:
+            raise ValueError(f"{name!r} is not a valid model or profile")
 
-            if profile:
-                if profile not in self.profiles:
-                    raise ValueError(f"Unknown profile: {profile}")
+        selected_model = self.models[name]
+        selected_profile = self.profiles[selected_model.profile]
 
-                selected_profile = self.profiles[profile]
+        if profile is not None:
+            if profile not in self.profiles:
+                raise ValueError(f"Unknown profile: {profile}")
 
-            arguments = selected_model.build_arguments(selected_profile)
+            selected_profile = self.profiles[profile]
 
-            self.__print_arguments(arguments)
+        arguments = selected_model.build_arguments(selected_profile)
+        self.__print_arguments(arguments)
 
-        else:
-            raise ValueError(f"{name} is not a valid model or profile.")
+    def run(self) -> None:
+        """
+        Dispatch the parsed CLI command to its corresponding loader operation.
+        """
+        match self.args.command:
+            case "list":
+                self.list_items(models_only=self.args.models, profiles_only=self.args.profiles)
+            case "edit":
+                self.edit(name=self.args.file)
+            case "init":
+                self.init(cwd=Path.cwd())
+            case "show":
+                self.show(name=self.args.model, profile=self.args.profile)
+            case "start":
+                self.start(
+                    model_name=self.args.model,
+                    llama_args=self.args.llamaargs,
+                    open_browser=self.args.b,
+                    incognito=self.args.i,
+                )
 
     def __run_server(self, command: list[str]) -> None:
-        # Covers the special case where keyboard interrupts before the creation of the subprocess
+        """
+        Start llama-server and keep the process attached until it exits.
+
+        A keyboard interrupt terminates the running process before returning
+        control to the caller.
+
+        Args:
+            command: Command-line tokens used to start llama-server.
+
+        Raises:
+            SystemExit: If the llama-server executable cannot be found.
+        """
         try:
             llama_process = subprocess.Popen(command)
-        except FileNotFoundError:
-            raise SystemExit("Process haven't started yet.")
-
-        try:
-            llama_process = subprocess.Popen(command)
-            llama_process.wait()
-        # Check if the user interrupted the process (CTRL + C) to stop the server
-        except KeyboardInterrupt:
-            print("\nClosing the server...")
-            llama_process.terminate()
-            llama_process.wait()
-
         except FileNotFoundError:
             print("Error: llama.cpp was not found")
 
@@ -409,7 +403,14 @@ class Loader:
 
             raise SystemExit(
                 "\nOr compile your own version from source: See more at https://github.com/ggml-org/llama.cpp"
-            )
+            ) from None
+
+        try:
+            llama_process.wait()
+        except KeyboardInterrupt:
+            print("\nClosing the server...")
+            llama_process.terminate()
+            llama_process.wait()
 
     def __open_browser(
         self,
@@ -427,19 +428,30 @@ class Loader:
             port: Server port to open.
             incognito: Whether to open the browser in incognito mode.
         """
-        command = [str(browser_path), "--start-maximized", f"http://{host}:{port}"]
+        command = [str(browser_path), "--start-maximized"]
+
         if incognito:
             command.append("--incognito")
 
+        command.append(f"http://{host}:{port}")
         subprocess.Popen(command)
 
     @staticmethod
     def __print_arguments(arguments: dict[str, object]) -> None:
+        """
+        Print a llama.cpp argument mapping in a human-readable form.
+
+        Arguments with an empty string value are printed as bare flags.
+
+        Args:
+            arguments: Argument mapping to print.
+        """
         for key, value in arguments.items():
             if value != "":
                 print(f"{key}: {value}")
             else:
                 print(key)
+
 
 def main() -> None:
     cli = CLI()
