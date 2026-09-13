@@ -10,7 +10,8 @@ from .configs import Configs
 from .model import Model
 from .profiles import Profiles
 
-ROOT = Path(__file__).parents[2].resolve()
+PROJECT_ROOT = Path(__file__).parents[2].resolve()
+SETTINGS_DIR = PROJECT_ROOT / "settings"
 
 
 class Loader:
@@ -51,26 +52,26 @@ class Loader:
         open_browser: Launch the configured browser for the llama-server interface.
     """
 
-    REQUIRED_MODEL_FIELDS = frozenset({"name", "files", "profile", "parameters"})
-
     def __init__(self, args: Namespace) -> None:
         self.args = args
-        self.models: dict[str, Model] = {}
-        self.configs = Configs(ROOT / "settings" / "configs.toml")
-        self.profiles = Profiles(ROOT / "settings" / "profiles.toml")
+        self.configs = Configs(SETTINGS_DIR / "configs.toml")
+        self.profiles = Profiles(SETTINGS_DIR / "profiles.toml")
+        self.models: dict[str, Model] = self.__load_models()
 
+    def __load_models(self) -> dict[str, Model]:
         models_root = self.configs.root
         toml_paths = models_root.rglob("*.toml")
+
+        models: dict[str, Model] = {}
 
         for toml_path in toml_paths:
             with toml_path.open("rb") as file:
                 model_toml = tomllib.load(file)
 
-            # Only model-like TOML files containing all required sections are loaded
-            if self.REQUIRED_MODEL_FIELDS <= model_toml.keys():
+            if Model.REQUIRED_MODEL_FIELDS <= model_toml.keys():
                 model = Model(model_toml, toml_path, toml_path.parent, self.profiles)
 
-                if model.name in self.models:
+                if model.name in models:
                     raise ValueError(f"Invalid model at '{toml_path}'. The name '{model.name}' already exists")
 
                 if model.name in self.profiles:
@@ -78,11 +79,39 @@ class Loader:
                         f"Invalid model at '{toml_path}'. The name '{model.name}' is already defined as a profile"
                     )
 
-                self.models[model.name] = model
+                models[model.name] = model
+
+        return models
+
+
+    def run(self) -> None:
+        """
+        Dispatch the parsed command to its operation.
+
+        Reads the selected subcommand and its options from ``self.args`` and
+        calls the matching loader method.
+        """
+        match self.args.command:
+            case "list":
+                self.list_items(self.args.models, self.args.profiles)
+            case "edit":
+                self.edit(self.args.file)
+            case "init":
+                self.init(Path.cwd())
+            case "show":
+                self.show(self.args.model, self.args.profile)
+            case "start":
+                self.start(
+                    self.args.model,
+                    self.args.llamaargs,
+                    self.args.b,
+                    self.args.i,
+                )
+
 
     def start(
         self,
-        model: str,
+        model_name: str,
         llamaargs: list[str] | None = None,
         b: bool = False,
         i: bool = False,
@@ -134,10 +163,10 @@ class Loader:
             SystemExit: If the llama-server executable cannot be found.
         """
 
-        if model not in self.models:
-            raise ValueError(f"Unknown model: {model}.")
+        if model_name not in self.models:
+            raise ValueError(f"Unknown model: {model_name}.")
 
-        selected_model = self.models[model]
+        selected_model = self.models[model_name]
 
         if llamaargs:
             # Work on a copy so parsing does not mutate the caller's argument list
@@ -146,45 +175,26 @@ class Loader:
 
             if profile_arg in self.profiles:
                 llamaargs.pop(0)
-                new_profile = self.profiles[profile_arg]
-                selected_model.arguments = selected_model.build_arguments(new_profile)
+                selected_profile = self.profiles[profile_arg]
+                selected_model.arguments = selected_model.build_arguments(selected_profile)
 
             elif not profile_arg.startswith("-"):
                 raise ValueError(f"{profile_arg} is not a valid profile or llama.cpp flag.")
 
-            flags_dict = CLI.args_to_dict(llamaargs)
-
-            selected_model.arguments.update(flags_dict)
+            overrides = CLI.args_to_dict(llamaargs)
+            selected_model.arguments.update(overrides)
 
         if b or i:
             browser_path = self.configs.require_browser()
             browser_host, browser_port = selected_model.require_address()
 
-            self.open_browser(browser_path, browser_host, browser_port, i)
+            self.__open_browser(browser_path, browser_host, browser_port, i)
 
         command = selected_model.build_command()
-        try:
-            llama_process = subprocess.Popen(command)
-            llama_process.wait()
-        # Check if the user interrupted the process (CTRL + C) to stop the server
-        except KeyboardInterrupt:
-            print("\nClosing the server...")
-            llama_process.terminate()
-            llama_process.wait()
+        self.__run_server(command)
 
-        except FileNotFoundError:
-            print("Error: llama.cpp was not found")
 
-            if os.name == "nt":
-                print("\nInstall via winget with: 'winget install llama.cpp'")
-            else:
-                print("\nInstall via homebrew with: 'brew install llama.cpp'")
-
-            raise SystemExit(
-                "\nOr compile your own version from source: See more at https://github.com/ggml-org/llama.cpp"
-            )
-
-    def list(self, models: bool, profiles: bool) -> None:
+    def list_items(self, models: bool, profiles: bool) -> None:
         """
         Print the available models and profiles.
 
@@ -233,13 +243,17 @@ class Loader:
         stem = cwd.name.replace(" ", "-")
         model_name = "-".join(stem.split("-")[:2]).lower()
         output_name = f"{stem}.toml"
-        flags = {
+        flags: dict[str, str] = {
             "model": "",
             "mmproj": "",
             "draft": "",
             "template": "",
             "spec-type": "",
         }
+
+        output = cwd / output_name
+        if output.exists():
+            raise SystemExit(f"Error: '{output.name}' already exists")
 
         # Search only for files with ".gguf" or ".jinja" extension
         files = [file.name for file in cwd.iterdir() if file.is_file() and file.suffix.lower() in (".gguf", ".jinja")]
@@ -301,14 +315,9 @@ class Loader:
             spec_type=flags["spec-type"],
         )
 
-        output = cwd / output_name
-        if output.exists():
-            raise SystemExit(f"Error: '{output.name}' already exists")
+        output.write_text(toml, encoding="utf-8")
 
-        else:
-            output.write_text(toml, encoding="utf-8")
-
-    def edit(self, file: str) -> None:
+    def edit(self, name: str) -> None:
         """
         Open a configuration file in the configured editor.
 
@@ -323,19 +332,19 @@ class Loader:
             FileNotFoundError: If the resolved file does not exist.
         """
 
-        if file in ("configs", "profiles"):
-            path = ROOT / "settings" / f"{file}.toml"
-        elif file in self.models:
-            path = self.models[file].path
+        if name in ("configs", "profiles"):
+            path = SETTINGS_DIR / f"{name}.toml"
+        elif name in self.models:
+            path = self.models[name].path
         else:
-            raise ValueError(f"{file} is not a valid model or file.")
+            raise ValueError(f"{name} is not a valid model or file.")
 
         if path.is_file():
             subprocess.Popen([self.configs.editor, str(path)])
         else:
-            raise FileNotFoundError(f"{file} doesn't exist.")
+            raise FileNotFoundError(f"{name} doesn't exist.")
 
-    def show(self, model: str, profile: str | None = None) -> None:
+    def show(self, name: str, profile: str | None = None) -> None:
         """
         Print the resolved arguments for a model, or the flags of a profile.
 
@@ -354,15 +363,11 @@ class Loader:
             ValueError: If the model or profile name is unknown.
         """
 
-        if model in self.profiles:
-            for key, value in self.profiles[model].items():
-                if value != "":
-                    print(f"{key}: {value}")
-                else:
-                    print(key)
+        if name in self.profiles:
+            self.__print_arguments(self.profiles[name])
 
-        elif model in self.models:
-            selected_model = self.models[model]
+        elif name in self.models:
+            selected_model = self.models[name]
             selected_profile = self.profiles[selected_model.profile]
 
             if profile:
@@ -373,44 +378,44 @@ class Loader:
 
             arguments = selected_model.build_arguments(selected_profile)
 
-            for key, value in arguments.items():
-                if value != "":
-                    print(f"{key}: {value}")
-                else:
-                    print(key)
+            self.__print_arguments(arguments)
 
         else:
-            raise ValueError(f"{model} is not a valid model or profile.")
+            raise ValueError(f"{name} is not a valid model or profile.")
 
-    def run(self) -> None:
-        """
-        Dispatch the parsed command to its operation.
+    def __run_server(self, command: list[str]) -> None:
+        # Covers the special case where keyboard interrupts before the creation of the subprocess
+        try:
+            llama_process = subprocess.Popen(command)
+        except FileNotFoundError:
+            raise SystemExit("Process haven't started yet.")
 
-        Reads the selected subcommand and its options from ``self.args`` and
-        calls the matching loader method.
-        """
-        match self.args.command:
-            case "list":
-                self.list(self.args.models, self.args.profiles)
-            case "edit":
-                self.edit(self.args.file)
-            case "init":
-                self.init(Path.cwd())
-            case "show":
-                self.show(self.args.model, self.args.profile)
-            case "start":
-                self.start(
-                    self.args.model,
-                    self.args.llamaargs,
-                    self.args.b,
-                    self.args.i,
-                )
+        try:
+            llama_process = subprocess.Popen(command)
+            llama_process.wait()
+        # Check if the user interrupted the process (CTRL + C) to stop the server
+        except KeyboardInterrupt:
+            print("\nClosing the server...")
+            llama_process.terminate()
+            llama_process.wait()
 
-    def open_browser(
+        except FileNotFoundError:
+            print("Error: llama.cpp was not found")
+
+            if os.name == "nt":
+                print("\nInstall via winget with: 'winget install llama.cpp'")
+            else:
+                print("\nInstall via homebrew with: 'brew install llama.cpp'")
+
+            raise SystemExit(
+                "\nOr compile your own version from source: See more at https://github.com/ggml-org/llama.cpp"
+            )
+
+    def __open_browser(
         self,
         browser_path: Path,
-        host: str = "127.0.0.1",
-        port: int = 9931,
+        host: str,
+        port: int,
         incognito: bool = False,
     ) -> None:
         """
@@ -428,6 +433,13 @@ class Loader:
 
         subprocess.Popen(command)
 
+    @staticmethod
+    def __print_arguments(arguments: dict[str, object]) -> None:
+        for key, value in arguments.items():
+            if value != "":
+                print(f"{key}: {value}")
+            else:
+                print(key)
 
 def main() -> None:
     cli = CLI()

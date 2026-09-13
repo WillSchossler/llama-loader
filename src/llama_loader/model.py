@@ -23,7 +23,8 @@ class Model:
         profiles: Available profiles.
         name: Unique model name.
         profile: Name of the selected profile.
-        parameters: Model-specific llama.cpp parameters.
+        parameters: Model-specific llama.cpp parameters owned by this model.
+            Mutating them does not modify the source configuration mapping.
         files: Model file flags mapped to their resolved paths.
         arguments: Resolved llama.cpp arguments using the model's selected profile.
 
