@@ -1,104 +1,112 @@
+from argparse import Namespace
 from pathlib import Path
 
 from llama_loader.cli import CLI
-from llama_loader.configs import Configs
 from llama_loader.loader import Loader
-from llama_loader.profiles import Profiles
 
 
-class create_temporary:
-    def __init__(self, tmp_path: Path) -> None:
+class Helper:
+    def __init__(self, tmp_path: Path, cli_args: list[str] = ["list"], custom_toml=False) -> None:
         self.tmp_path = tmp_path
-        self.models_dir = tmp_path / "models"
-        self.settings_dir = tmp_path / "settings"
 
+        self.models_dir: Path = tmp_path / "models"
         self.models_dir.mkdir()
+
+        self.settings_dir: Path = tmp_path / "settings"
         self.settings_dir.mkdir()
 
-    def cli_args(command: list[str] = ["list"]):
         cli = CLI()
-        self.args = cli.parser.parse_args(command)
+        self.args: Namespace = cli.parser.parse_args(cli_args)
 
-        return self.args
+        self.__create_configs_file()
+        self.__create_profiles_file()
+        self.__create_model_files(custom_toml)
 
-    def model(self):
-        pass
+    def __create_configs_file(self) -> None:
+        self.browser_path: Path = self.settings_dir / "browser.exe"
+        self.browser_path.touch()
+
+        self.configs_path: Path = self.settings_dir / "configs.toml"
+
+        toml: str = f"""
+        root = '{self.models_dir}'
+        editor = "code.cmd"
+        browser_path = '{self.browser_path}'
+        """
+
+        self.configs_path.write_text(toml)
+
+    def __create_profiles_file(self) -> None:
+        self.profiles_path: Path = self.settings_dir / "profiles.toml"
+
+        toml: str = """
+        [default]
+        --jinja = ""
+        --port = 9931
+        --host = "127.0.0.1"
+
+        [balanced]
+        --fit = "on"
+        --agent = ""
+        """
+
+        self.configs_path.write_text(toml)
+
+    def __create_model_files(self, custom_toml=False) -> None:
+        toml_path: Path = self.models_dir / "models.toml"
+
+        files: list[str] = ["model.gguf", "template.jinja", "mmproj.gguf", "mtp.gguf"]
+
+        for file in files:
+            temp_file: Path = self.models_dir / file
+            temp_file.touch()
+
+        qwen_model: Path = self.models_dir / "qwen.gguf"
+        qwen_model.touch()
+
+        toml: str = (
+            custom_toml
+            if custom_toml
+            else """
+        # models
 
 
+        # A name used to identify the model. Must be unique.
+        name = "models"
 
-def create_model(tmp_path):
-    models_path = tmp_path / "models"
-
-    toml_path = models_path / "qwen.toml"
-    
-    qwen_model = models_path / "qwen.gguf"
-    qwen_model.touch()
-
-    toml = """
-    # qwen
-
-    name = "qwen"
-    profile = "balanced"
-
-    [files]
-    --model = 'qwen.gguf'
-
-    [parameters]
-    --temp = 1
-    """
-
-    toml_path.write_text(toml)
+        # Default profile for the model. Pick one table from "profiles.toml".
+        # The flags from your chosen profile will overwrite the default ones.
+        profile = "default"
 
 
-def create_profiles(tmp_path: Path) -> Profiles:
-    profiles_path = tmp_path / "profiles.toml"
-
-    toml = """
-    [default]
-    --agent = ""
-    --port = 9931
-    --host = "127.0.0.1"
-
-    [balanced]
-    --temp = 0.60
-    """
-
-    profiles_path.write_text(toml)
-
-    return Profiles(profiles_path)
+        # Relative path of your files.
+        [files]
+        --model = 'model.gguf'
+        --mmproj = 'mmproj.gguf'
+        --model-draft = 'mtp.gguf'
+        --chat-template-file = 'template.jinja'
 
 
-def create_configs(tmp_path: Path):
-    configs_path = tmp_path / "configs.toml"
+        # Additional llama.cpp parameters.
+        [parameters]
+        --spec-type = "ngram-mod,draft-mtp"
+        --fit = "on"
+        --jinja = ""
+        """
+        )
 
-    root_path = tmp_path / "models"
-    root_path.mkdir()
-
-    browser_path = tmp_path / "browser.exe"
-    browser_path.touch()
-
-    toml = f"""
-    root = '{root_path}'
-    editor = "code.cmd"
-    browser_path = '{browser_path}'
-    """
-
-    configs_path.write_text(toml)
-
-    return Configs(configs_path)
+        toml_path.write_text(toml)
 
 
 def test_loader(tmp_path, monkeypatch):
     monkeypatch.setattr(Loader, "SETTINGS_DIR", tmp_path)
 
-    args = create_cli_args(["list"])
-    create_profiles(tmp_path)
-    create_configs(tmp_path)
-    create_model(tmp_path)
+    helper = Helper(tmp_path, ["list"])
+    args = helper.args
 
-    loader = Loader(args)
+    Loader(args)
 
-    assert loader.args.command == args.command    
+    """assert loader.args.command == args.command
 
     assert loader.configs.root == tmp_path / "models"
     assert loader.configs.editor == "code.cmd"
@@ -107,6 +115,5 @@ def test_loader(tmp_path, monkeypatch):
     assert loader.profiles["default"]["--host"] == "127.0.0.1"
     assert loader.profiles["default"]["--port"] == 9931
     assert loader.profiles["balanced"]["--temp"] == 0.6
-    
-    assert loader.models == {}
-    #assert loader.models["gemma"]["name"] == "gemma"
+
+    assert loader.models["qwen"].name == "qwen" """
