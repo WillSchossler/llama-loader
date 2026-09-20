@@ -302,7 +302,7 @@ class Loader:
         if not path.is_file():
             raise FileNotFoundError(f"{name!r} does not exist")
 
-        subprocess.Popen([self.configs.editor, str(path)])
+        subprocess.Popen([self.configs.editor, path])
 
     def show(self, name: str, profile: str | None = None) -> None:
         """
