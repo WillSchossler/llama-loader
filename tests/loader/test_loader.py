@@ -1,10 +1,11 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import os
 import pytest
 
-from llama_loader.loader import Loader
 from llama_loader import loader as loader_module
+from llama_loader.loader import Loader
 
 from .helpers import Helper
 
@@ -131,3 +132,25 @@ def test_run_server_with_llama_server_set(monkeypatch: pytest.MonkeyPatch):
 
     popen_mock.assert_called_once_with(command)
     process_mock.wait.assert_called_once()
+
+
+def test_run_server_raises_when_llama_server_is_missing(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    command = ["llama-server", "--model", "qwen.gguf", "--agent"]
+
+    popen_mock = MagicMock()
+    popen_mock.side_effect = FileNotFoundError
+    monkeypatch.setattr(loader_module.subprocess, "Popen", popen_mock)
+
+    with pytest.raises(SystemExit, match="Or compile your own version from source"):
+        Loader._run_server(command)
+    
+    popen_mock.assert_called_once_with(command)
+
+    output = capsys.readouterr().out
+
+    if os.name == "nt":
+        assert "winget" in output
+    else:
+        assert "brew" in output
