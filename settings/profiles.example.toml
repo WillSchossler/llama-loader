@@ -9,9 +9,6 @@
 # Flags without a value:
 # --jinja = ""
 #
-# An empty string tells llama-loader to emit only the flag itself:
-#     --jinja
-#
 # Model-specific arguments can override values defined here.
 
 

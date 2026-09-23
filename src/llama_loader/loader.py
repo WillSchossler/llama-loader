@@ -152,10 +152,10 @@ class Loader:
         if open_browser or incognito:
             browser_path = self.configs.require_browser()
             browser_host, browser_port = selected_model.require_address()
-            self.__open_browser(browser_path, browser_host, browser_port, incognito)
+            self._open_browser(browser_path, browser_host, browser_port, incognito)
 
         command = selected_model.build_command()
-        self.__run_server(command)
+        self._run_server(command)
 
     def roll(self, models_only: bool, profiles_only: bool) -> None:
         """
@@ -327,7 +327,7 @@ class Loader:
             if profile is not None:
                 raise ValueError("A profile override can only be applied when showing a model")
 
-            self.__print_arguments(self.profiles[name])
+            self._print_arguments(self.profiles[name])
             return
 
         if name not in self.models:
@@ -343,7 +343,7 @@ class Loader:
             selected_profile = self.profiles[profile]
 
         arguments = selected_model.build_arguments(selected_profile)
-        self.__print_arguments(arguments)
+        self._print_arguments(arguments)
 
     def run(self) -> None:
         """
@@ -366,7 +366,8 @@ class Loader:
                     incognito=self.args.i,
                 )
 
-    def __run_server(self, command: list[str]) -> None:
+    @staticmethod
+    def _run_server(command: list[str]) -> None:
         """
         Start llama-server and keep the process attached until it exits.
 
@@ -400,8 +401,8 @@ class Loader:
             llama_process.terminate()
             llama_process.wait()
 
-    def __open_browser(
-        self,
+    @staticmethod
+    def _open_browser(
         browser_path: Path,
         host: str,
         port: int,
@@ -416,7 +417,7 @@ class Loader:
             port: Server port to open.
             incognito: Whether to open the browser in incognito mode.
         """
-        command = [str(browser_path), "--start-maximized"]
+        command = [browser_path, "--start-maximized"]
 
         if incognito:
             command.append("--incognito")
@@ -425,7 +426,7 @@ class Loader:
         subprocess.Popen(command)
 
     @staticmethod
-    def __print_arguments(arguments: dict[str, object]) -> None:
+    def _print_arguments(arguments: dict[str, object]) -> None:
         """
         Print a llama.cpp argument mapping in a human-readable form.
 

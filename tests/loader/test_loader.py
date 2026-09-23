@@ -1,8 +1,10 @@
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
 from llama_loader.loader import Loader
+from llama_loader import loader as loader_module
 
 from .helpers import Helper
 
@@ -78,3 +80,54 @@ def test_loader_ignores_incomplete_model_toml(tmp_path: Path, monkeypatch: pytes
     loader = Loader(args)
 
     assert loader.models == {}
+
+
+def test_print_arguments_formats_values_and_bare_flags(capsys: pytest.CaptureFixture[str]):
+    arguments: dict[str, object] = {"--agent": "", "--fit": "on", "--port": 8080}
+
+    Loader._print_arguments(arguments)
+
+    output = capsys.readouterr().out.strip().splitlines()
+
+    assert output == [
+        "--agent",
+        "--fit: on",
+        "--port: 8080",
+    ]
+
+
+@pytest.mark.parametrize(
+    "incognito",
+    (
+        pytest.param(False, id="standard"),
+        pytest.param(True, id="incognito"),
+    ),
+)
+def test_open_browser(monkeypatch: pytest.MonkeyPatch, incognito: bool):
+    browser_path = Path("browser.exe")
+    host = "127.0.0.1"
+    port = 9931
+
+    popen_mock = MagicMock()
+    monkeypatch.setattr(loader_module.subprocess, "Popen", popen_mock)
+
+    Loader._open_browser(browser_path, host, port, incognito)
+
+    expected = [browser_path, "--start-maximized", *(["--incognito"] if incognito else []), f"http://{host}:{port}"]
+
+    popen_mock.assert_called_once_with(expected)
+
+
+def test_run_server_with_llama_server_set(monkeypatch: pytest.MonkeyPatch):
+    command = ["llama-server", "--model", "qwen.gguf", "--agent"]
+
+    process_mock = MagicMock()
+    process_mock.wait.side_effect = None
+
+    popen_mock = MagicMock(return_value=process_mock)
+    monkeypatch.setattr(loader_module.subprocess, "Popen", popen_mock)
+
+    Loader._run_server(command)
+
+    popen_mock.assert_called_once_with(command)
+    process_mock.wait.assert_called_once()
