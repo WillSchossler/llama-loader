@@ -384,11 +384,11 @@ class Loader:
             llama_process = subprocess.Popen(command)
         except FileNotFoundError:
             print("Error: llama.cpp was not found")
-
+            print()
             if os.name == "nt":
-                print("\nInstall via winget with: 'winget install llama.cpp'")
+                print("Install via winget with: 'winget install llama.cpp'")
             else:
-                print("\nInstall via homebrew with: 'brew install llama.cpp'")
+                print("Install via homebrew with: 'brew install llama.cpp'")
 
             raise SystemExit(
                 "\nOr compile your own version from source: See more at https://github.com/ggml-org/llama.cpp"

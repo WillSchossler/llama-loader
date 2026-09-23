@@ -134,8 +134,11 @@ def test_run_server_with_llama_server_set(monkeypatch: pytest.MonkeyPatch):
     process_mock.wait.assert_called_once()
 
 
+@pytest.mark.parametrize(
+    ("name", "expected"), (("nt", "winget install llama.cpp"), ("posix", "brew install llama.cpp"))
+)
 def test_run_server_raises_when_llama_server_is_missing(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], name: str, expected: str
 ):
     command = ["llama-server", "--model", "qwen.gguf", "--agent"]
 
@@ -143,14 +146,15 @@ def test_run_server_raises_when_llama_server_is_missing(
     popen_mock.side_effect = FileNotFoundError
     monkeypatch.setattr(loader_module.subprocess, "Popen", popen_mock)
 
+    # Need to change "os.name" to test for both possible outcomes
+    monkeypatch.setattr(os, "name", name)
+
     with pytest.raises(SystemExit, match="Or compile your own version from source"):
         Loader._run_server(command)
-    
+
     popen_mock.assert_called_once_with(command)
 
-    output = capsys.readouterr().out
+    output = capsys.readouterr().out.splitlines()
 
-    if os.name == "nt":
-        assert "winget" in output
-    else:
-        assert "brew" in output
+    assert "Error: llama.cpp was not found" in output[0]
+    assert expected in output[2]
