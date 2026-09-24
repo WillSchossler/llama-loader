@@ -389,15 +389,16 @@ class Loader:
                 print("Install via winget with: 'winget install llama.cpp'")
             else:
                 print("Install via homebrew with: 'brew install llama.cpp'")
-
+            print()
             raise SystemExit(
-                "\nOr compile your own version from source: See more at https://github.com/ggml-org/llama.cpp"
+                "Or compile your own version from source: See more at https://github.com/ggml-org/llama.cpp"
             ) from None
 
         try:
             llama_process.wait()
         except KeyboardInterrupt:
-            print("\nClosing the server...")
+            print()
+            print("Closing the server...")
             llama_process.terminate()
             llama_process.wait()
 

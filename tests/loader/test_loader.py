@@ -1,7 +1,7 @@
-from pathlib import Path
-from unittest.mock import MagicMock
-
 import os
+from pathlib import Path
+from unittest.mock import MagicMock, call
+
 import pytest
 
 from llama_loader import loader as loader_module
@@ -123,8 +123,6 @@ def test_run_server_with_llama_server_set(monkeypatch: pytest.MonkeyPatch):
     command = ["llama-server", "--model", "qwen.gguf", "--agent"]
 
     process_mock = MagicMock()
-    process_mock.wait.side_effect = None
-
     popen_mock = MagicMock(return_value=process_mock)
     monkeypatch.setattr(loader_module.subprocess, "Popen", popen_mock)
 
@@ -135,26 +133,48 @@ def test_run_server_with_llama_server_set(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.mark.parametrize(
-    ("name", "expected"), (("nt", "winget install llama.cpp"), ("posix", "brew install llama.cpp"))
+    ("os_name", "install_command"), (("nt", "winget install llama.cpp"), ("posix", "brew install llama.cpp"))
 )
 def test_run_server_raises_when_llama_server_is_missing(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], name: str, expected: str
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], os_name: str, install_command: str
 ):
     command = ["llama-server", "--model", "qwen.gguf", "--agent"]
 
-    popen_mock = MagicMock()
-    popen_mock.side_effect = FileNotFoundError
+    popen_mock = MagicMock(side_effect=FileNotFoundError)
     monkeypatch.setattr(loader_module.subprocess, "Popen", popen_mock)
 
     # Need to change "os.name" to test for both possible outcomes
-    monkeypatch.setattr(os, "name", name)
+    monkeypatch.setattr(os, "name", os_name)
 
     with pytest.raises(SystemExit, match="Or compile your own version from source"):
         Loader._run_server(command)
 
     popen_mock.assert_called_once_with(command)
 
-    output = capsys.readouterr().out.splitlines()
+    output = capsys.readouterr().out
 
-    assert "Error: llama.cpp was not found" in output[0]
-    assert expected in output[2]
+    assert "Error: llama.cpp was not found" in output
+    assert install_command in output
+
+
+def test_run_server_terminates_process_on_keyboard_interrupt(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    command = ["llama-server", "--model", "qwen.gguf", "--agent"]
+
+    process_mock = MagicMock()
+    process_mock.wait.side_effect = [KeyboardInterrupt, None]
+
+    popen_mock = MagicMock(return_value=process_mock)
+    monkeypatch.setattr(loader_module.subprocess, "Popen", popen_mock)
+
+    Loader._run_server(command)
+
+    output = capsys.readouterr().out.strip()
+
+    assert output == "Closing the server..."
+    assert process_mock.mock_calls == [
+        call.wait(),
+        call.terminate(),
+        call.wait(),
+    ]
