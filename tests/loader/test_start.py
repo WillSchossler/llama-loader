@@ -151,12 +151,8 @@ def test_start_applies_argument_layer_precedence(tmp_path: Path, monkeypatch: py
     loader = Loader(args)
     selected_model = loader.models[qwen["name"]]
 
-    fake_arguments = {
-        "--model-only": "model",
-        "--model-profile": "model",
-        "--shared": "model"
-    }
-    selected_model.parameters.update(fake_arguments)
+    fake_parameters = {"--model-only": "model", "--model-profile": "model", "--shared": "model"}
+    selected_model.parameters.update(fake_parameters)
 
     fake_command = ["llama-server"]
     build_command_mock = MagicMock(return_value=fake_command)
@@ -173,4 +169,4 @@ def test_start_applies_argument_layer_precedence(tmp_path: Path, monkeypatch: py
     assert selected_model.arguments["--model-only"] == "model"
     assert selected_model.arguments["--cli-only"] == "cli"
 
-    run_server_mock.assert_called_once()
+    run_server_mock.assert_called_once_with(fake_command)
