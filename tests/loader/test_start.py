@@ -130,3 +130,46 @@ def test_start_opens_browser_with_selected_mode(
     loader.start(model_name=args.model, llama_args=args.llamaargs, open_browser=args.b, incognito=args.i)
 
     open_browser_mock.assert_called_once_with(browser_path, *browser_address, incognito)
+
+
+def test_start_applies_model_profile_and_cli_argument_precedence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    helper = Helper(tmp_path, monkeypatch)
+    args = helper.create_cli_args(["start", "qwen", "fake_profile", "--shared", "cli", "--cli-only", "cli"])
+    qwen = helper.create_model()
+
+    fake_profile = """
+
+    [fake_profile]
+    "--profile-only" = "profile"
+    "--model-profile" = "profile"
+    "--shared" = "profile"
+    """
+    with helper.profiles_path.open("a", encoding="utf-8") as file:
+        file.write(fake_profile)
+
+    loader = Loader(args)
+    selected_model = loader.models[qwen["name"]]
+
+    fake_arguments = {
+        "--model-only": "model",
+        "--model-profile": "model",
+        "--shared": "model"
+    }
+    selected_model.arguments.update(fake_arguments)
+
+    open_browser_mock = MagicMock()
+    build_command_mock = MagicMock()
+    run_server_mock = MagicMock()
+
+    monkeypatch.setattr(selected_model, "build_command", build_command_mock)
+    monkeypatch.setattr(loader, "_run_server", run_server_mock)
+
+
+    loader.start(model_name=args.model, llama_args=args.llamaargs, open_browser=args.b, incognito=args.i)
+
+    assert selected_model.arguments["--model-only"] == "model"
+    assert selected_model.arguments["--model-profile"] == "profile"
+    assert selected_model.arguments["--profile-only"] == "profile"
+    assert selected_model.arguments["--shared"] == "cli"
+    assert selected_model.arguments["--cli-only"] == "cli"
+    run_server_mock.assert_called_once()
