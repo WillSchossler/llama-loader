@@ -132,7 +132,7 @@ def test_start_opens_browser_with_selected_mode(
     open_browser_mock.assert_called_once_with(browser_path, *browser_address, incognito)
 
 
-def test_start_applies_model_profile_and_cli_argument_precedence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_start_applies_argument_layer_precedence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     helper = Helper(tmp_path, monkeypatch)
     args = helper.create_cli_args(["start", "qwen", "fake_profile", "--shared", "cli", "--cli-only", "cli"])
     qwen = helper.create_model()
@@ -144,6 +144,7 @@ def test_start_applies_model_profile_and_cli_argument_precedence(tmp_path: Path,
     "--model-profile" = "profile"
     "--shared" = "profile"
     """
+
     with helper.profiles_path.open("a", encoding="utf-8") as file:
         file.write(fake_profile)
 
@@ -155,21 +156,21 @@ def test_start_applies_model_profile_and_cli_argument_precedence(tmp_path: Path,
         "--model-profile": "model",
         "--shared": "model"
     }
-    selected_model.arguments.update(fake_arguments)
+    selected_model.parameters.update(fake_arguments)
 
-    open_browser_mock = MagicMock()
-    build_command_mock = MagicMock()
+    fake_command = ["llama-server"]
+    build_command_mock = MagicMock(return_value=fake_command)
     run_server_mock = MagicMock()
 
     monkeypatch.setattr(selected_model, "build_command", build_command_mock)
     monkeypatch.setattr(loader, "_run_server", run_server_mock)
 
-
     loader.start(model_name=args.model, llama_args=args.llamaargs, open_browser=args.b, incognito=args.i)
 
-    assert selected_model.arguments["--model-only"] == "model"
-    assert selected_model.arguments["--model-profile"] == "profile"
     assert selected_model.arguments["--profile-only"] == "profile"
+    assert selected_model.arguments["--model-profile"] == "model"
     assert selected_model.arguments["--shared"] == "cli"
+    assert selected_model.arguments["--model-only"] == "model"
     assert selected_model.arguments["--cli-only"] == "cli"
+
     run_server_mock.assert_called_once()
