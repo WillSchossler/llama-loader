@@ -58,8 +58,10 @@ def test_loader_raises_for_duplicate_model(tmp_path: Path, monkeypatch: pytest.M
 
     helper.create_model(name="qwen")
 
+    loader = Loader(args)
+
     with pytest.raises(ValueError, match="The name 'qwen' already exists"):
-        Loader(args)
+        _ = loader.models
 
 
 def test_loader_raises_for_model_name_matching_profile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -68,8 +70,10 @@ def test_loader_raises_for_model_name_matching_profile(tmp_path: Path, monkeypat
 
     helper.create_model(name="balanced")
 
+    loader = Loader(args)
+
     with pytest.raises(ValueError, match="The name 'balanced' is already defined as a profile"):
-        Loader(args)
+        _ = loader.models
 
 
 def test_loader_ignores_incomplete_model_toml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

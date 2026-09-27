@@ -70,7 +70,6 @@ class Loader:
 
         return self._models
 
-
     def __load_models(self) -> dict[str, Model]:
         """
         Discover and load model configurations from the configured models root.
@@ -109,7 +108,6 @@ class Loader:
 
         return models
 
-
     def _load_model(self, name: str) -> Model | None:
         path = self._find_model_path(name, self.configs.root)
 
@@ -120,7 +118,6 @@ class Loader:
             model_toml = tomllib.load(file)
 
         return Model(model_toml, path, path.parent, self.profiles)
-
 
     def start(
         self,
@@ -367,7 +364,7 @@ class Loader:
             return
 
         selected_model = self._load_model(name)
-        
+
         if selected_model is None:
             raise ValueError(f"{name!r} is not a valid model or profile")
 

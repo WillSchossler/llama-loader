@@ -73,23 +73,3 @@ def test_roll_profiles_only_ignores_invalid_existing_models(
 
     assert "balanced" in output
     assert "default" not in output
-
-
-def test_roll_profiles_only_ignores_invalid_existing_models(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-):
-    helper = Helper(tmp_path, monkeypatch)
-    args = helper.create_cli_args(["list", "-p"])
-
-    qwen = helper.create_model()
-    (qwen["model_dir"] / "model.gguf").unlink()
-
-    loader = Loader(args)
-    loader.roll(models_only=False, profiles_only=True)
-
-    output = capsys.readouterr().out
-
-    assert "balanced" in output
-    assert "default" not in output

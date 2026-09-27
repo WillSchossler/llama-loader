@@ -37,6 +37,7 @@ def test_start_with_profile_set(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
 
     loader = Loader(args)
     selected_model = loader._load_model(qwen["name"])
+    assert selected_model is not None
 
     fake_arguments = {"--hot": "potato"}
     fake_command = ["potato"]
@@ -65,6 +66,7 @@ def test_start_applies_cli_argument_overrides(tmp_path: Path, monkeypatch: pytes
 
     loader = Loader(args)
     selected_model = loader._load_model(qwen["name"])
+    assert selected_model is not None
 
     selected_model.arguments = {
         "--preserved": "model",
@@ -154,6 +156,7 @@ def test_start_applies_argument_layer_precedence(tmp_path: Path, monkeypatch: py
 
     loader = Loader(args)
     selected_model = loader._load_model(qwen["name"])
+    assert selected_model is not None
 
     fake_parameters = {"--model-only": "model", "--model-profile": "model", "--shared": "model"}
     selected_model.parameters.update(fake_parameters)
