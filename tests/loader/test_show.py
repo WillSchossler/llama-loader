@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from unittest.mock import MagicMock
 from llama_loader.loader import Loader
 
 from .helpers import Helper
@@ -38,8 +39,11 @@ def test_show_applies_profile_override_without_mutating_model(
     helper.create_model()
 
     loader = Loader(args)
-    # A copy of the model's arguments for further imutability check
-    arguments_before = loader.models["qwen"].arguments.copy()
+    selected_model = loader._load_model("qwen")
+    arguments_before = selected_model.arguments.copy()
+
+    load_model_mock = MagicMock(return_value=selected_model)
+    monkeypatch.setattr(loader, "_load_model", load_model_mock)
 
     loader.show("qwen", "balanced")
 
@@ -48,9 +52,8 @@ def test_show_applies_profile_override_without_mutating_model(
     assert parameters["--port"] == "8080"
     assert parameters["--host"] == "127.0.0.1"
 
-    assert loader.models["qwen"].arguments == arguments_before, (
-        "Model's arguments are being mutated by the show() method"
-    )
+    assert selected_model.arguments == arguments_before
+    load_model_mock.assert_called_once_with("qwen")
 
 
 def test_show_raises_for_unknown_profile_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

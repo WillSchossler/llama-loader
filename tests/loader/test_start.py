@@ -115,19 +115,22 @@ def test_start_opens_browser_with_selected_mode(
 ):
     helper = Helper(tmp_path, monkeypatch)
     args = helper.create_cli_args(["start", browser_flag, "qwen"])
-    qwen = helper.create_model()
+    helper.create_model()
 
     loader = Loader(args)
-    selected_model = loader.models[qwen["name"]]
+    selected_model = loader._load_model("qwen")
+    assert selected_model is not None
 
     browser_path = Path("browser.exe")
     browser_address = ("127.0.0.1", 9931)
 
+    load_model_mock = MagicMock(return_value=selected_model)
     require_browser_mock = MagicMock(return_value=browser_path)
     require_address_mock = MagicMock(return_value=browser_address)
     open_browser_mock = MagicMock()
     run_server_mock = MagicMock()
 
+    monkeypatch.setattr(loader, "_load_model", load_model_mock)
     monkeypatch.setattr(loader.configs, "require_browser", require_browser_mock)
     monkeypatch.setattr(selected_model, "require_address", require_address_mock)
     monkeypatch.setattr(loader, "_open_browser", open_browser_mock)

@@ -114,6 +114,9 @@ class Loader:
         if path is None:
             return None
 
+        if name in self.profiles:
+            raise ValueError(f"Invalid model at {str(path)!r}. The name {name!r} is already defined as a profile")
+
         with path.open("rb") as file:
             model_toml = tomllib.load(file)
 
