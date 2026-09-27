@@ -47,14 +47,12 @@ def test_edit_raises_for_unknown_name(tmp_path: Path, monkeypatch: pytest.Monkey
         loader.edit("potato")
 
 
-def test_edit_raises_when_file_is_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    helper = Helper(tmp_path, monkeypatch)
-    args = helper.create_cli_args(["edit", "qwen"])
-    qwen = helper.create_model()
+    def test_edit_raises_when_setting_file_is_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        helper = Helper(tmp_path, monkeypatch)
+        args = helper.create_cli_args(["edit", "configs"])
 
-    loader = Loader(args)
-    qwen_file: Path = qwen["model_file"]
-    qwen_file.unlink()
+        loader = Loader(args)
+        helper.configs_path.unlink()
 
-    with pytest.raises(FileNotFoundError, match="does not exist"):
-        loader.edit("qwen")
+        with pytest.raises(FileNotFoundError, match="does not exist"):
+            loader.edit("configs")

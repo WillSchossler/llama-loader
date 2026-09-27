@@ -305,13 +305,15 @@ class Loader:
             ValueError: If ``name`` identifies neither a global configuration nor a model.
             FileNotFoundError: If the resolved configuration file does not exist.
         """
+
         if name in ("configs", "profiles"):
             path = self.SETTINGS_DIR / f"{name}.toml"
-        elif name in self.models:
-            path = self.models[name].path
         else:
-            raise ValueError(f"{name!r} is not a valid model or configuration")
+            path = self._find_model_path(name, self.configs.root)
 
+            if path is None:
+                raise ValueError(f"{name!r} is not a valid model or configuration")
+    
         if not path.is_file():
             raise FileNotFoundError(f"{name!r} does not exist")
 
@@ -470,7 +472,7 @@ class Loader:
         Returns:
             The matching TOML path, or ``None`` if no matching model is found.
         """
-        for toml_path in root:
+        for toml_path in root.rglob("*.toml"):
             with toml_path.open("rb") as file:
                 model_toml = tomllib.load(file)
 
