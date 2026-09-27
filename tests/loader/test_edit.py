@@ -46,15 +46,16 @@ def test_edit_raises_for_unknown_name(tmp_path: Path, monkeypatch: pytest.Monkey
     with pytest.raises(ValueError, match="is not a valid model or configuration"):
         loader.edit("potato")
 
-    def test_edit_raises_when_setting_file_is_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-        helper = Helper(tmp_path, monkeypatch)
-        args = helper.create_cli_args(["edit", "configs"])
 
-        loader = Loader(args)
-        helper.configs_path.unlink()
+def test_edit_raises_when_setting_file_is_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    helper = Helper(tmp_path, monkeypatch)
+    args = helper.create_cli_args(["edit", "configs"])
 
-        with pytest.raises(FileNotFoundError, match="does not exist"):
-            loader.edit("configs")
+    loader = Loader(args)
+    helper.configs_path.unlink()
+
+    with pytest.raises(FileNotFoundError, match="does not exist"):
+        loader.edit("configs")
 
 
 def test_find_model_path_raises_for_duplicate_names(tmp_path: Path):

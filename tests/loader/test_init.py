@@ -1,6 +1,5 @@
 import tomllib
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -107,6 +106,8 @@ def test_init_ignores_unrecognized_files(tmp_path: Path, monkeypatch: pytest.Mon
 
     generated_files = model_toml["files"].values()
 
+    assert model_toml["files"]["--model"] == "model.gguf"
+
     for file in unrecognized_files:
         assert file.name not in generated_files
 
@@ -117,15 +118,51 @@ def test_init_command_ignores_invalid_existing_models(
 ):
     helper = Helper(tmp_path, monkeypatch)
     args = helper.create_cli_args(["init"])
-    qwen = helper.create_model()
 
+    qwen = helper.create_model()
     (qwen["model_dir"] / "model.gguf").unlink()
 
+    target_dir = tmp_path / "new-model"
+    target_dir.mkdir()
+    (target_dir / "model.gguf").touch()
+
+    monkeypatch.chdir(target_dir)
+
     loader = Loader(args)
-
-    init_mock = MagicMock()
-    monkeypatch.setattr(loader, "init", init_mock)
-
     loader.run()
 
-    init_mock.assert_called_once()
+    output = target_dir / "new-model.toml"
+
+    with output.open("rb") as file:
+        model_toml = tomllib.load(file)
+
+    assert model_toml["name"] == "new-model"
+    assert model_toml["files"]["--model"] == "model.gguf"
+
+
+def test_init_command_does_not_require_configs_or_profiles(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    helper = Helper(tmp_path, monkeypatch)
+    args = helper.create_cli_args(["init"])
+
+    helper.configs_path.unlink()
+    helper.profiles_path.unlink()
+
+    target_dir = tmp_path / "standalone-model"
+    target_dir.mkdir()
+    (target_dir / "model.gguf").touch()
+
+    monkeypatch.chdir(target_dir)
+
+    loader = Loader(args)
+    loader.run()
+
+    output = target_dir / "standalone-model.toml"
+
+    with output.open("rb") as file:
+        model_toml = tomllib.load(file)
+
+    assert model_toml["name"] == "standalone-model"
+    assert model_toml["files"]["--model"] == "model.gguf"
