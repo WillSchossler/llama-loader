@@ -46,9 +46,22 @@ class Loader:
 
     def __init__(self, args: Namespace) -> None:
         self.args = args
-        self.configs = Configs(self.SETTINGS_DIR / "configs.toml")
-        self.profiles = Profiles(self.SETTINGS_DIR / "profiles.toml")
-        self.models: dict[str, Model] = self.__load_models()
+
+        self._configs: Configs | None = None
+        self._profiles: Profiles | None = None
+        self._models: dict[str, Model] | None = None
+
+    @property
+    def configs(self) -> Configs:
+        if self._configs is None:
+            self._configs = Configs(self.SETTINGS_DIR / "configs.toml")
+        return self._configs
+
+    @property
+    def profiles(self) -> Profiles:
+        if self._profiles is None:
+            self._profiles = Profiles(self.SETTINGS_DIR / "profiles.toml")
+        return self._profiles
 
     def __load_models(self) -> dict[str, Model]:
         """
@@ -457,7 +470,7 @@ class Loader:
         Returns:
             The matching TOML path, or ``None`` if no matching model is found.
         """
-        for toml_path in self.configs.root.rglob("*.toml"):
+        for toml_path in root:
             with toml_path.open("rb") as file:
                 model_toml = tomllib.load(file)
 

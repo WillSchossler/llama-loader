@@ -1,5 +1,6 @@
 import tomllib
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -108,3 +109,23 @@ def test_init_ignores_unrecognized_files(tmp_path: Path, monkeypatch: pytest.Mon
 
     for file in unrecognized_files:
         assert file.name not in generated_files
+
+
+def test_init_command_ignores_invalid_existing_models(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    helper = Helper(tmp_path, monkeypatch)
+    args = helper.create_cli_args(["init"])
+    qwen = helper.create_model()
+
+    (qwen["model_dir"] / "model.gguf").unlink()
+
+    loader = Loader(args)
+
+    init_mock = MagicMock()
+    monkeypatch.setattr(loader, "init", init_mock)
+
+    loader.run()
+
+    init_mock.assert_called_once()
