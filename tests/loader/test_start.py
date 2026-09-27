@@ -224,3 +224,25 @@ def test_start_raises_when_selected_model_is_invalid(tmp_path: Path, monkeypatch
             open_browser=args.b,
             incognito=args.i,
         )
+
+
+def test_start_rejects_model_name_matching_profile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    helper = Helper(tmp_path, monkeypatch)
+    args = helper.create_cli_args(["start", "balanced"])
+
+    helper.create_model(name="balanced")
+
+    loader = Loader(args)
+
+    run_server_mock = MagicMock()
+    monkeypatch.setattr(loader, "_run_server", run_server_mock)
+
+    with pytest.raises(ValueError, match="already defined as a profile"):
+        loader.start(
+            model_name=args.model,
+            llama_args=args.llamaargs,
+            open_browser=args.b,
+            incognito=args.i,
+        )
+
+    run_server_mock.assert_not_called()
