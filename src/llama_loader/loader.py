@@ -442,6 +442,30 @@ class Loader:
             else:
                 print(key)
 
+    @staticmethod
+    def _find_model_path(name: str, root: Path) -> Path | None:
+        """
+        Find the TOML configuration path for a model name.
+
+        Searches TOML files recursively under ``root`` and returns the path whose
+        configuration declares the requested model name.
+
+        Args:
+            name: Model name to locate.
+            root: Directory tree containing model configurations.
+
+        Returns:
+            The matching TOML path, or ``None`` if no matching model is found.
+        """
+        for toml_path in self.configs.root.rglob("*.toml"):
+            with toml_path.open("rb") as file:
+                model_toml = tomllib.load(file)
+
+            if model_toml.get("name") == name:
+                return toml_path
+
+        return None
+
 
 def main() -> None:
     cli = CLI()
