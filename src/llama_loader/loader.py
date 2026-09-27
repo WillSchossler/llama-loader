@@ -313,7 +313,7 @@ class Loader:
 
             if path is None:
                 raise ValueError(f"{name!r} is not a valid model or configuration")
-    
+
         if not path.is_file():
             raise FileNotFoundError(f"{name!r} does not exist")
 
@@ -459,27 +459,19 @@ class Loader:
 
     @staticmethod
     def _find_model_path(name: str, root: Path) -> Path | None:
-        """
-        Find the TOML configuration path for a model name.
+        matches: list[Path] = []
 
-        Searches TOML files recursively under ``root`` and returns the path whose
-        configuration declares the requested model name.
-
-        Args:
-            name: Model name to locate.
-            root: Directory tree containing model configurations.
-
-        Returns:
-            The matching TOML path, or ``None`` if no matching model is found.
-        """
         for toml_path in root.rglob("*.toml"):
             with toml_path.open("rb") as file:
                 model_toml = tomllib.load(file)
 
             if model_toml.get("name") == name:
-                return toml_path
+                matches.append(toml_path)
 
-        return None
+        if len(matches) > 1:
+            raise ValueError(f"Multiple model configurations found for {name!r}")
+
+        return matches[0] if matches else None
 
 
 def main() -> None:
