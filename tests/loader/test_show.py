@@ -100,3 +100,42 @@ def test_show_raises_for_unknown_name(tmp_path: Path, monkeypatch: pytest.Monkey
         loader.show("potato")
 
 
+def test_show_profile_ignores_invalid_existing_models(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+):
+    helper = Helper(tmp_path, monkeypatch)
+    args = helper.create_cli_args(["show", "default"])
+
+    qwen = helper.create_model()
+    (qwen["model_dir"] / "model.gguf").unlink()
+
+    loader = Loader(args)
+    loader.show("default")
+
+    parameters = helper.create_capsys_out_dict(capsys)
+
+    assert parameters["--host"] == "127.0.0.1"
+    assert parameters["--port"] == "9931"
+
+
+def test_show_model_ignores_invalid_other_models(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+):
+    helper = Helper(tmp_path, monkeypatch)
+    args = helper.create_cli_args(["show", "qwen"])
+
+    qwen = helper.create_model(name="qwen")
+    broken = helper.create_model(name="broken")
+
+    (broken["model_dir"] / "model.gguf").unlink()
+
+    loader = Loader(args)
+    loader.show("qwen")
+
+    parameters = helper.create_capsys_out_dict(capsys)
+
+    assert parameters["--model"] == str(qwen["model_dir"] / "model.gguf")

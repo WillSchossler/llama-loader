@@ -124,10 +124,7 @@ def test_edit_opens_invalid_profiles_for_repair(tmp_path: Path, monkeypatch: pyt
     helper = Helper(tmp_path, monkeypatch)
     args = helper.create_cli_args(["edit", "profiles"])
 
-    helper.profiles_path.write_text(
-        "[this is not valid toml",
-        encoding="utf-8"
-    )
+    helper.profiles_path.write_text("[this is not valid toml", encoding="utf-8")
 
     loader = Loader(args)
 

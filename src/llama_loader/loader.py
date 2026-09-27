@@ -63,6 +63,14 @@ class Loader:
             self._profiles = Profiles(self.SETTINGS_DIR / "profiles.toml")
         return self._profiles
 
+    @property
+    def models(self) -> dict[str, Model]:
+        if self._models is None:
+            self._models = self.__load_models()
+
+        return self._models
+
+
     def __load_models(self) -> dict[str, Model]:
         """
         Discover and load model configurations from the configured models root.
@@ -100,6 +108,17 @@ class Loader:
             models[model.name] = model
 
         return models
+
+    def _load_model(self, name: str) -> Model | None:
+        path = self._find_model_path(name, self.configs.root)
+
+        if path is None:
+            return None
+
+        with path.open("rb") as file:
+            model_toml = tomllib.load(file)
+
+        return Model(model_toml, path, path.parent, self.profiles)
 
     def start(
         self,
@@ -345,10 +364,11 @@ class Loader:
             self._print_arguments(self.profiles[name])
             return
 
-        if name not in self.models:
+        selected_model = self._load_model(name)
+        
+        if selected_model is None:
             raise ValueError(f"{name!r} is not a valid model or profile")
 
-        selected_model = self.models[name]
         selected_profile = self.profiles[selected_model.profile]
 
         if profile is not None:
