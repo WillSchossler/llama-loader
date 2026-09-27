@@ -81,3 +81,94 @@ def test_find_model_path_raises_for_duplicate_names(tmp_path: Path):
 
     with pytest.raises(ValueError, match="Multiple model configurations found for 'qwen'"):
         Loader._find_model_path("qwen", tmp_path)
+
+
+def test_edit_opens_incomplete_model_configuration(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    helper = Helper(tmp_path, monkeypatch)
+    args = helper.create_cli_args(["edit", "qwen"])
+    qwen = helper.create_model()
+
+    qwen["model_file"].write_text(
+        'name = "qwen"\n',
+        encoding="utf-8",
+    )
+
+    loader = Loader(args)
+
+    popen_mock = MagicMock()
+    monkeypatch.setattr(loader_module.subprocess, "Popen", popen_mock)
+
+    loader.edit("qwen")
+
+    popen_mock.assert_called_once_with([helper.editor, qwen["model_file"]])
+
+
+def test_edit_model_does_not_require_profiles(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    helper = Helper(tmp_path, monkeypatch)
+    args = helper.create_cli_args(["edit", "qwen"])
+    qwen = helper.create_model()
+
+    helper.profiles_path.unlink()
+
+    loader = Loader(args)
+
+    popen_mock = MagicMock()
+    monkeypatch.setattr(loader_module.subprocess, "Popen", popen_mock)
+
+    loader.edit("qwen")
+
+    popen_mock.assert_called_once_with([helper.editor, qwen["model_file"]])
+
+
+def test_edit_opens_invalid_profiles_for_repair(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    helper = Helper(tmp_path, monkeypatch)
+    args = helper.create_cli_args(["edit", "profiles"])
+
+    helper.profiles_path.write_text(
+        "[this is not valid toml",
+        encoding="utf-8"
+    )
+
+    loader = Loader(args)
+
+    popen_mock = MagicMock()
+    monkeypatch.setattr(loader_module.subprocess, "Popen", popen_mock)
+
+    loader.edit("profiles")
+
+    popen_mock.assert_called_once_with([helper.editor, helper.profiles_path])
+
+
+def test_edit_opens_model_with_missing_gguf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    helper = Helper(tmp_path, monkeypatch)
+    args = helper.create_cli_args(["edit", "qwen"])
+    qwen = helper.create_model()
+
+    (qwen["model_dir"] / "model.gguf").unlink()
+
+    loader = Loader(args)
+
+    popen_mock = MagicMock()
+    monkeypatch.setattr(loader_module.subprocess, "Popen", popen_mock)
+
+    loader.edit("qwen")
+
+    popen_mock.assert_called_once_with([helper.editor, qwen["model_file"]])
+
+
+def test_edit_model_ignores_invalid_other_models(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    helper = Helper(tmp_path, monkeypatch)
+    args = helper.create_cli_args(["edit", "qwen"])
+
+    qwen = helper.create_model(name="qwen")
+    broken = helper.create_model(name="broken")
+
+    (broken["model_dir"] / "model.gguf").unlink()
+
+    loader = Loader(args)
+
+    popen_mock = MagicMock()
+    monkeypatch.setattr(loader_module.subprocess, "Popen", popen_mock)
+
+    loader.edit("qwen")
+    popen_mock.assert_called_once_with([helper.editor, qwen["model_file"]])

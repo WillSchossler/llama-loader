@@ -98,3 +98,5 @@ def test_show_raises_for_unknown_name(tmp_path: Path, monkeypatch: pytest.Monkey
 
     with pytest.raises(ValueError, match="is not a valid model or profile"):
         loader.show("potato")
+
+
