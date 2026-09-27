@@ -36,15 +36,17 @@ def test_start_with_profile_set(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     qwen = helper.create_model()
 
     loader = Loader(args)
-    selected_model = loader.models[qwen["name"]]
+    selected_model = loader._load_model(qwen["name"])
 
     fake_arguments = {"--hot": "potato"}
     fake_command = ["potato"]
 
+    load_model_mock = MagicMock(return_value=selected_model)
     build_arguments_mock = MagicMock(return_value=fake_arguments)
     build_command_mock = MagicMock(return_value=fake_command)
     run_server_mock = MagicMock()
 
+    monkeypatch.setattr(loader, "_load_model", load_model_mock)
     monkeypatch.setattr(selected_model, "build_arguments", build_arguments_mock)
     monkeypatch.setattr(selected_model, "build_command", build_command_mock)
     monkeypatch.setattr(loader, "_run_server", run_server_mock)
@@ -62,7 +64,7 @@ def test_start_applies_cli_argument_overrides(tmp_path: Path, monkeypatch: pytes
     qwen = helper.create_model()
 
     loader = Loader(args)
-    selected_model = loader.models[qwen["name"]]
+    selected_model = loader._load_model(qwen["name"])
 
     selected_model.arguments = {
         "--preserved": "model",
@@ -75,10 +77,12 @@ def test_start_applies_cli_argument_overrides(tmp_path: Path, monkeypatch: pytes
     }
     fake_command = ["llama-server", "--hot", "potato"]
 
+    load_model_mock = MagicMock(return_value=selected_model)
     args_to_dict_mock = MagicMock(return_value=fake_overrides)
     build_command_mock = MagicMock(return_value=fake_command)
     run_server_mock = MagicMock()
 
+    monkeypatch.setattr(loader, "_load_model", load_model_mock)
     monkeypatch.setattr(loader_module.CLI, "args_to_dict", args_to_dict_mock)
     monkeypatch.setattr(selected_model, "build_command", build_command_mock)
     monkeypatch.setattr(loader, "_run_server", run_server_mock)
@@ -149,15 +153,17 @@ def test_start_applies_argument_layer_precedence(tmp_path: Path, monkeypatch: py
         file.write(fake_profile)
 
     loader = Loader(args)
-    selected_model = loader.models[qwen["name"]]
+    selected_model = loader._load_model(qwen["name"])
 
     fake_parameters = {"--model-only": "model", "--model-profile": "model", "--shared": "model"}
     selected_model.parameters.update(fake_parameters)
 
     fake_command = ["llama-server"]
+    load_model_mock = MagicMock(return_value=selected_model)
     build_command_mock = MagicMock(return_value=fake_command)
     run_server_mock = MagicMock()
 
+    monkeypatch.setattr(loader, "_load_model", load_model_mock)
     monkeypatch.setattr(selected_model, "build_command", build_command_mock)
     monkeypatch.setattr(loader, "_run_server", run_server_mock)
 
@@ -170,3 +176,45 @@ def test_start_applies_argument_layer_precedence(tmp_path: Path, monkeypatch: py
     assert selected_model.arguments["--cli-only"] == "cli"
 
     run_server_mock.assert_called_once_with(fake_command)
+
+
+def test_start_ignores_invalid_other_models(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    helper = Helper(tmp_path, monkeypatch)
+    args = helper.create_cli_args(["start", "qwen"])
+
+    helper.create_model(name="qwen")
+    broken = helper.create_model(name="broken")
+
+    (broken["model_dir"] / "model.gguf").unlink()
+
+    loader = Loader(args)
+
+    run_server_mock = MagicMock()
+    monkeypatch.setattr(loader, "_run_server", run_server_mock)
+
+    loader.start(
+        model_name=args.model,
+        llama_args=args.llamaargs,
+        open_browser=args.b,
+        incognito=args.i,
+    )
+
+    run_server_mock.assert_called_once()
+
+
+def test_start_raises_when_selected_model_is_invalid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    helper = Helper(tmp_path, monkeypatch)
+    args = helper.create_cli_args(["start", "qwen"])
+
+    qwen = helper.create_model()
+    (qwen["model_dir"] / "model.gguf").unlink()
+
+    loader = Loader(args)
+
+    with pytest.raises(ValueError, match="does not contain a valid file path"):
+        loader.start(
+            model_name=args.model,
+            llama_args=args.llamaargs,
+            open_browser=args.b,
+            incognito=args.i,
+        )

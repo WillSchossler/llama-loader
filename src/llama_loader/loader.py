@@ -109,6 +109,7 @@ class Loader:
 
         return models
 
+
     def _load_model(self, name: str) -> Model | None:
         path = self._find_model_path(name, self.configs.root)
 
@@ -119,6 +120,7 @@ class Loader:
             model_toml = tomllib.load(file)
 
         return Model(model_toml, path, path.parent, self.profiles)
+
 
     def start(
         self,
@@ -160,10 +162,10 @@ class Loader:
                 provided, or required runtime configuration is invalid.
             SystemExit: If the llama-server executable cannot be found.
         """
-        if model_name not in self.models:
-            raise ValueError(f"Unknown model: {model_name}")
+        selected_model = self._load_model(model_name)
 
-        selected_model = self.models[model_name]
+        if selected_model is None:
+            raise ValueError(f"Unknown model: {model_name}")
 
         if llama_args:
             # Work on a copy so parsing does not mutate the caller's argument list
