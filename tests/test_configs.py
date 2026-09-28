@@ -53,15 +53,19 @@ def test_configs_loads_valid_configuration(tmp_path):
 def test_configs_raises_for_missing_root_field(tmp_path):
     configs_path, _, _ = create_configs_file(tmp_path, include_root=False)
 
+    configs = Configs(configs_path)
+
     with pytest.raises(ValueError, match="Field 'root' is not defined in configs.toml"):
-        Configs(configs_path)
+        _ = configs.root
 
 
 def test_configs_raises_for_missing_editor_field(tmp_path):
     configs_path, _, _ = create_configs_file(tmp_path, include_editor=False)
 
+    configs = Configs(configs_path)
+
     with pytest.raises(ValueError, match="Field 'editor' is not defined in configs.toml"):
-        Configs(configs_path)
+        _ = configs.editor
 
 
 def test_configs_allows_missing_browser_path(tmp_path):
@@ -101,8 +105,10 @@ def test_configs_raises_for_non_string_value(tmp_path):
         """
     )
 
+    configs = Configs(configs_path)
+
     with pytest.raises(TypeError, match="Field 'editor' must be a string"):
-        Configs(configs_path)
+        _ = configs.editor
 
 
 def test_configs_raises_for_empty_value(tmp_path):
@@ -117,8 +123,10 @@ def test_configs_raises_for_empty_value(tmp_path):
         """
     )
 
+    configs = Configs(configs_path)
+
     with pytest.raises(ValueError, match="Field 'editor' cannot be empty"):
-        Configs(configs_path)
+        _ = configs.editor
 
 
 def test_configs_raises_for_nonexistent_root_directory(tmp_path):
@@ -132,8 +140,10 @@ def test_configs_raises_for_nonexistent_root_directory(tmp_path):
         """
     )
 
+    configs = Configs(configs_path)
+
     with pytest.raises(ValueError, match="Field 'root' must point to an existing directory"):
-        Configs(configs_path)
+        _ = configs.root
 
 
 def test_configs_raises_for_nonexistent_browser_file(tmp_path):
@@ -151,5 +161,7 @@ def test_configs_raises_for_nonexistent_browser_file(tmp_path):
         """
     )
 
+    configs = Configs(configs_path)
+
     with pytest.raises(ValueError, match="Field 'browser_path' must point to an existing file"):
-        Configs(configs_path)
+        _ = configs.browser_path
