@@ -182,3 +182,24 @@ def test_run_server_terminates_process_on_keyboard_interrupt(
         call.terminate(),
         call.wait(),
     ]
+
+
+def test_find_model_path_ignores_malformed_unrelated_toml(tmp_path: Path):
+    qwen_dir = tmp_path / "qwen"
+    broken_dir = tmp_path / "broken"
+
+    qwen_dir.mkdir()
+    broken_dir.mkdir()
+
+    qwen_file = qwen_dir / "qwen.toml"
+    qwen_file.write_text(
+        'name = "qwen"\n',
+        encoding="utf-8",
+    )
+
+    (broken_dir / "broken.toml").write_text(
+        "[broken",
+        encoding="utf-8",
+    )
+
+    assert Loader._find_model_path("qwen", tmp_path) == qwen_file

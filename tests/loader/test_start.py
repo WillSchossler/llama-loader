@@ -115,10 +115,11 @@ def test_start_opens_browser_with_selected_mode(
 ):
     helper = Helper(tmp_path, monkeypatch)
     args = helper.create_cli_args(["start", browser_flag, "qwen"])
-    helper.create_model()
+    qwen = helper.create_model()
 
     loader = Loader(args)
-    selected_model = loader._load_model("qwen")
+    
+    selected_model = loader._load_model(qwen["name"])
     assert selected_model is not None
 
     browser_path = Path("browser.exe")

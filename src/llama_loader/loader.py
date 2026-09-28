@@ -484,8 +484,11 @@ class Loader:
         matches: list[Path] = []
 
         for toml_path in root.rglob("*.toml"):
-            with toml_path.open("rb") as file:
-                model_toml = tomllib.load(file)
+            try:
+                with toml_path.open("rb") as file:
+                    model_toml = tomllib.load(file)
+            except tomllib.TOMLDecodeError:
+                continue
 
             if model_toml.get("name") == name:
                 matches.append(toml_path)
