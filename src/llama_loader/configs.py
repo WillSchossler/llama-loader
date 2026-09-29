@@ -1,3 +1,5 @@
+import os
+import sys
 import tomllib
 from pathlib import Path
 
@@ -70,22 +72,28 @@ class Configs:
     @property
     def editor(self) -> str:
         """
-        Return the validated editor command.
+        Return the configured editor command or a platform fallback.
 
         The field is loaded and validated only on first access, then cached.
 
         Returns:
-            Configured editor command.
+            Configured editor command or a platform-specific fallback.
 
         Raises:
-            ValueError: If the field is missing or empty.
-            TypeError: If the field is not a string.
+            ValueError: If the configured field is empty.
+            TypeError: If the configured field is not a string.
         """
         if self._editor is None:
-            value = self.__get_field("editor")
+            value = self.__get_field("editor", required=False)
 
-            assert value is not None
-            self._editor = value
+            if value is not None:
+                self._editor = value
+            elif os.name == "nt":
+                self._editor = "notepad"
+            elif sys.platform == "darwin":
+                self._editor = "open"
+            else:
+                self._editor = "xdg-open"
 
         return self._editor
 

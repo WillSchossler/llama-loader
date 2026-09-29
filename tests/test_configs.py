@@ -1,9 +1,11 @@
+
 import tomllib
 from pathlib import Path
 
 import pytest
 
 from llama_loader.configs import Configs
+from llama_loader import configs as configs_module
 
 
 def create_configs_file(
@@ -58,15 +60,6 @@ def test_configs_raises_for_missing_root_field(tmp_path):
 
     with pytest.raises(ValueError, match="Field 'root' is not defined in configs.toml"):
         _ = configs.root
-
-
-def test_configs_raises_for_missing_editor_field(tmp_path):
-    configs_path, _, _ = create_configs_file(tmp_path, include_editor=False)
-
-    configs = Configs(configs_path)
-
-    with pytest.raises(ValueError, match="Field 'editor' is not defined in configs.toml"):
-        _ = configs.editor
 
 
 def test_configs_allows_missing_browser_path(tmp_path):
@@ -212,3 +205,55 @@ def test_configs_does_not_parse_toml_until_field_is_accessed(tmp_path: Path):
 
     with pytest.raises(tomllib.TOMLDecodeError):
         _ = configs.root
+
+
+def test_configs_returns_configured_editor(tmp_path: Path):
+    configs_path, _, _ = create_configs_file(tmp_path)
+
+    configs = Configs(configs_path)
+
+    assert configs.editor == "code.cmd"
+
+
+@pytest.mark.parametrize(
+    ("os_name", "platform", "expected_editor"),
+    [
+        pytest.param("nt", "win32", "notepad", id="windows"),
+        pytest.param("posix", "darwin", "open", id="macos"),
+        pytest.param("posix", "linux", "xdg-open", id="linux"),
+    ],
+)
+def test_configs_uses_platform_editor_when_editor_is_missing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    os_name: str,
+    platform: str,
+    expected_editor: str,
+):
+    configs_path, _, _ = create_configs_file(tmp_path, include_editor=False)
+
+    monkeypatch.setattr(configs_module.os, "name", os_name)
+    monkeypatch.setattr(configs_module.sys, "platform", platform)
+
+    configs = Configs(configs_path)
+
+    assert configs.editor == expected_editor
+
+
+def test_configs_raises_for_invalid_editor_type(tmp_path: Path):
+    models_path = tmp_path / "model"
+    models_path.mkdir()
+
+    configs_path = tmp_path / "configs.toml"
+    configs_path.write_text(
+        f"""
+        root = '{models_path}'
+        editor = 123
+        """,
+        encoding="utf-8",
+    )
+
+    configs = Configs(configs_path)
+
+    with pytest.raises(TypeError, match="Field 'editor' must be a string"):
+        _ = configs.editor
