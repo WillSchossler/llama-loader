@@ -1,3 +1,4 @@
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -207,4 +208,7 @@ def test_configs_does_not_parse_toml_until_field_is_accessed(tmp_path: Path):
     configs_path = tmp_path / "configs.toml"
     configs_path.write_text("[broken", encoding="utf-8")
 
-    Configs(configs_path)
+    configs = Configs(configs_path)
+
+    with pytest.raises(tomllib.TOMLDecodeError):
+        _ = configs.root

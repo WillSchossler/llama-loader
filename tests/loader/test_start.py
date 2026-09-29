@@ -189,7 +189,7 @@ def test_start_ignores_invalid_other_models(tmp_path: Path, monkeypatch: pytest.
     helper = Helper(tmp_path, monkeypatch)
     args = helper.create_cli_args(["start", "qwen"])
 
-    helper.create_model(name="qwen")
+    qwen = helper.create_model(name="qwen")
     broken = helper.create_model(name="broken")
 
     (broken["model_dir"] / "model.gguf").unlink()
@@ -206,7 +206,11 @@ def test_start_ignores_invalid_other_models(tmp_path: Path, monkeypatch: pytest.
         incognito=args.i,
     )
 
+    command = run_server_mock.call_args.args[0]
+    model_index = command.index("--model")
+
     run_server_mock.assert_called_once()
+    assert command[model_index + 1] == str(qwen["model_dir"] / "model.gguf")
 
 
 def test_start_raises_when_selected_model_is_invalid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

@@ -203,5 +203,8 @@ def test_edit_opens_malformed_configs_for_repair(
 
     popen_mock = MagicMock()
     monkeypatch.setattr(loader_module.subprocess, "Popen", popen_mock)
+    monkeypatch.setattr(loader_module.os, "name", "nt")
 
     loader.edit("configs")
+
+    popen_mock.assert_called_once_with(["notepad", helper.configs_path])
