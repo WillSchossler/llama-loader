@@ -1,8 +1,8 @@
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
-from unittest.mock import MagicMock
 from llama_loader.loader import Loader
 
 from .helpers import Helper
@@ -40,6 +40,8 @@ def test_show_applies_profile_override_without_mutating_model(
 
     loader = Loader(args)
     selected_model = loader._load_model("qwen")
+    assert selected_model is not None
+
     arguments_before = selected_model.arguments.copy()
 
     load_model_mock = MagicMock(return_value=selected_model)

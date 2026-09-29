@@ -165,3 +165,46 @@ def test_configs_raises_for_nonexistent_browser_file(tmp_path):
 
     with pytest.raises(ValueError, match="Field 'browser_path' must point to an existing file"):
         _ = configs.browser_path
+
+
+def test_invalid_browser_does_not_block_root(tmp_path: Path):
+    models_path = tmp_path / "model"
+    models_path.mkdir()
+
+    nonexistent_browser = tmp_path / "browser.exe"
+
+    configs_path = tmp_path / "configs.toml"
+    configs_path.write_text(
+        f"""
+        root = '{models_path}'
+        editor = "code.cmd"
+        browser_path = '{nonexistent_browser}'
+        """
+    )
+
+    configs = Configs(configs_path)
+
+    assert configs.root == models_path
+
+
+def test_invalid_root_does_not_block_editor(tmp_path: Path):
+    nonexistent_root = tmp_path / "does-not-exist"
+
+    configs_path = tmp_path / "configs.toml"
+    configs_path.write_text(
+        f"""
+        root = '{nonexistent_root}'
+        editor = "code.cmd"
+        """
+    )
+
+    configs = Configs(configs_path)
+
+    assert configs.editor == "code.cmd"
+
+
+def test_configs_does_not_parse_toml_until_field_is_accessed(tmp_path: Path):
+    configs_path = tmp_path / "configs.toml"
+    configs_path.write_text("[broken", encoding="utf-8")
+
+    Configs(configs_path)

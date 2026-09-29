@@ -118,7 +118,7 @@ def test_start_opens_browser_with_selected_mode(
     qwen = helper.create_model()
 
     loader = Loader(args)
-    
+
     selected_model = loader._load_model(qwen["name"])
     assert selected_model is not None
 

@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 import textwrap
 import tomllib
 from argparse import Namespace
@@ -338,7 +339,17 @@ class Loader:
         if not path.is_file():
             raise FileNotFoundError(f"{name!r} does not exist")
 
-        subprocess.Popen([self.configs.editor, path])
+        try:
+            editor = self.configs.editor
+        except (FileNotFoundError, tomllib.TOMLDecodeError, TypeError, ValueError):
+            if os.name == "nt":
+                editor = "notepad"
+            elif sys.platform == "darwin":
+                editor = "open"
+            else:
+                editor = "xdg-open"
+
+        subprocess.Popen([editor, path])
 
     def show(self, name: str, profile: str | None = None) -> None:
         """

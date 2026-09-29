@@ -169,3 +169,39 @@ def test_edit_model_ignores_invalid_other_models(tmp_path: Path, monkeypatch: py
 
     loader.edit("qwen")
     popen_mock.assert_called_once_with([helper.editor, qwen["model_file"]])
+
+
+def test_edit_opens_malformed_profiles_for_repair(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    helper = Helper(tmp_path, monkeypatch)
+    args = helper.create_cli_args(["edit", "profiles"])
+
+    helper.profiles_path.write_text("[broken", encoding="utf-8")
+
+    loader = Loader(args)
+
+    popen_mock = MagicMock()
+    monkeypatch.setattr(loader_module.subprocess, "Popen", popen_mock)
+
+    loader.edit("profiles")
+
+    popen_mock.assert_called_once_with([helper.editor, helper.profiles_path])
+
+
+def test_edit_opens_malformed_configs_for_repair(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    helper = Helper(tmp_path, monkeypatch)
+    args = helper.create_cli_args(["edit", "configs"])
+
+    helper.configs_path.write_text("[broken", encoding="utf-8")
+
+    loader = Loader(args)
+
+    popen_mock = MagicMock()
+    monkeypatch.setattr(loader_module.subprocess, "Popen", popen_mock)
+
+    loader.edit("configs")
