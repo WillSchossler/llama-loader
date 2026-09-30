@@ -3,8 +3,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from llama_loader.loader import Loader
 from llama_loader import loader as loader_module
+from llama_loader.loader import Loader
 
 from .helpers import Helper
 

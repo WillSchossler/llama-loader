@@ -1,11 +1,10 @@
-
 import tomllib
 from pathlib import Path
 
 import pytest
 
-from llama_loader.configs import Configs
 from llama_loader import configs as configs_module
+from llama_loader.configs import Configs
 
 
 def create_configs_file(

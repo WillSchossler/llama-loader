@@ -444,7 +444,7 @@ class Loader:
 
         try:
             return_code = llama_process.wait()
-            
+
             if return_code != 0:
                 print(f"llama-server exited with code {return_code}", file=sys.stderr)
                 raise SystemExit(return_code)
