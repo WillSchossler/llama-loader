@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from llama_loader.loader import Loader
+from llama_loader import loader as loader_module
 
 from .helpers import Helper
 
@@ -105,3 +106,60 @@ def test_run_dispatches_start_command(
     start_mock.assert_called_once_with(
         model_name="qwen", llama_args=llama_args, open_browser=open_browser, incognito=incognito
     )
+
+
+def test_run_server_returns_normally_when_server_exits_successfully(monkeypatch: pytest.MonkeyPatch):
+    process_mock = MagicMock()
+    process_mock.wait.return_value = 0
+
+    popen_mock = MagicMock(return_value=process_mock)
+    monkeypatch.setattr(loader_module.subprocess, "Popen", popen_mock)
+
+    Loader._run_server(["llama-server"])
+
+    popen_mock.assert_called_once_with(["llama-server"])
+    process_mock.wait.assert_called_once_with()
+
+
+@pytest.mark.parametrize("return_code", [1, -1, 42])
+def test_run_server_exits_with_server_error_code(
+    monkeypatch: pytest.MonkeyPatch,
+    return_code: int,
+):
+    process_mock = MagicMock()
+    process_mock.wait.return_value = return_code
+
+    monkeypatch.setattr(
+        loader_module.subprocess,
+        "Popen",
+        MagicMock(return_value=process_mock),
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        Loader._run_server(["llama-server"])
+
+    assert exc_info.value.code == return_code
+
+
+def test_run_server_exits_with_130_on_keyboard_interrupt(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+):
+    process_mock = MagicMock()
+    process_mock.wait.side_effect = [KeyboardInterrupt(), 0]
+
+    monkeypatch.setattr(
+        loader_module.subprocess,
+        "Popen",
+        MagicMock(return_value=process_mock),
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        Loader._run_server(["llama-server"])
+
+    assert exc_info.value.code == 130
+    process_mock.terminate.assert_called_once_with()
+    assert process_mock.wait.call_count == 2
+
+    captured = capsys.readouterr()
+    assert "Closing the server..." in captured.err

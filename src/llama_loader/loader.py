@@ -443,12 +443,17 @@ class Loader:
             ) from None
 
         try:
-            llama_process.wait()
+            return_code = llama_process.wait()
+            
+            if return_code != 0:
+                print(f"llama-server exited with code {return_code}", file=sys.stderr)
+                raise SystemExit(return_code)
+
         except KeyboardInterrupt:
-            print()
-            print("Closing the server...")
+            print("\nClosing the server...", file=sys.stderr)
             llama_process.terminate()
             llama_process.wait()
+            raise SystemExit(130)
 
     @staticmethod
     def _open_browser(
