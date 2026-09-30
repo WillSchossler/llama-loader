@@ -127,6 +127,8 @@ def test_run_server_with_llama_server_set(monkeypatch: pytest.MonkeyPatch):
     command = ["llama-server", "--model", "qwen.gguf", "--agent"]
 
     process_mock = MagicMock()
+    process_mock.wait.return_value = 0
+
     popen_mock = MagicMock(return_value=process_mock)
     monkeypatch.setattr(loader_module.subprocess, "Popen", popen_mock)
 
@@ -167,15 +169,18 @@ def test_run_server_terminates_process_on_keyboard_interrupt(
     command = ["llama-server", "--model", "qwen.gguf", "--agent"]
 
     process_mock = MagicMock()
+    process_mock.wait.return_value = 130
     process_mock.wait.side_effect = [KeyboardInterrupt, None]
 
     popen_mock = MagicMock(return_value=process_mock)
     monkeypatch.setattr(loader_module.subprocess, "Popen", popen_mock)
 
-    Loader._run_server(command)
+    with pytest.raises(SystemExit) as exec_info:
+        Loader._run_server(command)
+    
+    output = capsys.readouterr().err.strip()
 
-    output = capsys.readouterr().out.strip()
-
+    assert exec_info.value.code == 130
     assert output == "Closing the server..."
     assert process_mock.mock_calls == [
         call.wait(),
