@@ -486,7 +486,9 @@ class Loader:
         if incognito:
             command.append("--incognito")
 
-        command.append(f"http://{host}:{port}")
+        url_host = f"[{host}]" if ":" in host else host
+        command.append(f"http://{url_host}:{port}")
+
         subprocess.Popen(command)
 
     @staticmethod

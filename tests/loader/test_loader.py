@@ -109,7 +109,7 @@ def test_print_arguments_formats_values_and_bare_flags(capsys: pytest.CaptureFix
         pytest.param(True, id="incognito"),
     ),
 )
-def test_open_browser(monkeypatch: pytest.MonkeyPatch, incognito: bool):
+def test_open_browser_with_correct_mode(monkeypatch: pytest.MonkeyPatch, incognito: bool):
     browser_path = Path("browser.exe")
     host = "127.0.0.1"
     port = 9931
@@ -122,6 +122,43 @@ def test_open_browser(monkeypatch: pytest.MonkeyPatch, incognito: bool):
     expected = [browser_path, "--start-maximized", *(["--incognito"] if incognito else []), f"http://{host}:{port}"]
 
     popen_mock.assert_called_once_with(expected)
+
+
+@pytest.mark.parametrize(
+    ("host", "expected_url"),
+    [
+        pytest.param("localhost", "http://localhost:8080", id="hostname"),
+        pytest.param("127.0.0.1", "http://127.0.0.1:8080", id="ipv4"),
+        pytest.param("::1", "http://[::1]:8080", id="ipv6"),
+        pytest.param("2001:db8::1234", "http://[2001:db8::1234]:8080", id="ipv6-full"),
+    ],
+)
+def test_open_browser_builds_valid_url(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    host: str,
+    expected_url: str,
+):
+    browser_path = tmp_path / "browser.exe"
+    browser_path.touch()
+
+    popen_mock = MagicMock()
+    monkeypatch.setattr(loader_module.subprocess, "Popen", popen_mock)
+
+    Loader._open_browser(
+        browser_path=browser_path,
+        host=host,
+        port=8080,
+        incognito=False,
+    )
+
+    popen_mock.assert_called_once_with(
+        [
+            browser_path,
+            "--start-maximized",
+            expected_url,
+        ]
+    )
 
 
 def test_run_server_with_llama_server_set(monkeypatch: pytest.MonkeyPatch):
