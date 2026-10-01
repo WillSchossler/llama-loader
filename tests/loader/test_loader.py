@@ -230,3 +230,25 @@ def test_toml_string_round_trips(value: str):
     parsed = tomllib.loads(f"value = {serialized}")
 
     assert parsed["value"] == value
+
+
+@pytest.mark.parametrize("name", ["configs", "profiles"])
+def test_load_model_rejects_reserved_model_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str):
+    helper = Helper(tmp_path, monkeypatch)
+    helper.create_model(name=name)
+
+    loader = Loader(helper.create_cli_args(["show", name]))
+
+    with pytest.raises(ValueError, match=f"Model name {name!r} is reserved"):
+        loader._load_model(name)
+
+
+@pytest.mark.parametrize("name", ["configs", "profiles"])
+def test_load_models_rejects_reserved_model_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str):
+    helper = Helper(tmp_path, monkeypatch)
+    helper.create_model(name=name)
+
+    loader = Loader(helper.create_cli_args(["list", "-m"]))
+
+    with pytest.raises(ValueError, match=f"Model name {name!r} is reserved"):
+        _ = loader.models

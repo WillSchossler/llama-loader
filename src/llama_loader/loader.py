@@ -44,6 +44,7 @@ class Loader:
     """
 
     SETTINGS_DIR = Path(__file__).parents[2].resolve() / "settings"
+    RESERVED_MODEL_NAMES = frozenset({"configs", "profiles"})
 
     def __init__(self, args: Namespace) -> None:
         self.args = args
@@ -97,6 +98,9 @@ class Loader:
 
             model = Model(model_toml, toml_path, toml_path.parent, self.profiles)
 
+            if model.name in self.RESERVED_MODEL_NAMES:
+                raise ValueError(f"Model name {model.name!r} is reserved")
+
             if model.name in models:
                 raise ValueError(f"Invalid model at {str(toml_path)!r}. The name {model.name!r} already exists")
 
@@ -110,6 +114,9 @@ class Loader:
         return models
 
     def _load_model(self, name: str) -> Model | None:
+        if name in self.RESERVED_MODEL_NAMES:
+            raise ValueError(f"Model name {name!r} is reserved")
+
         path = self._find_model_path(name, self.configs.root)
 
         if path is None:
