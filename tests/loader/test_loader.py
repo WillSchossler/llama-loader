@@ -1,4 +1,5 @@
 import os
+import tomllib
 from pathlib import Path
 from unittest.mock import MagicMock, call
 
@@ -177,7 +178,7 @@ def test_run_server_terminates_process_on_keyboard_interrupt(
 
     with pytest.raises(SystemExit) as exec_info:
         Loader._run_server(command)
-    
+
     output = capsys.readouterr().err.strip()
 
     assert exec_info.value.code == 130
@@ -208,3 +209,24 @@ def test_find_model_path_ignores_malformed_unrelated_toml(tmp_path: Path):
     )
 
     assert Loader._find_model_path("qwen", tmp_path) == qwen_file
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        r"C:\Models\Qwen\model.gguf",
+        'Will\'s "Qwen" model.gguf',
+        "tab\tinside",
+        "line\nbreak",
+        "carriage\rreturn",
+        "form\ffeed",
+        "back\bspace",
+        "Unicode 🦙 ç 日本語",
+    ],
+)
+def test_toml_string_round_trips(value: str):
+    serialized = Loader._toml_string(value)
+
+    parsed = tomllib.loads(f"value = {serialized}")
+
+    assert parsed["value"] == value

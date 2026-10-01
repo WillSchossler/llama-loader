@@ -257,27 +257,30 @@ class Loader:
 
         for file in files.copy():
             file_lower = file.lower()
+            serialized_file = self._toml_string(file)
 
             if file_lower.endswith(".jinja"):
-                flags["template"] = f"\n--chat-template-file = '{file}'"
+                flags["template"] = f"\n--chat-template-file = {serialized_file}"
                 files.remove(file)
 
             elif "mmproj" in file_lower:
-                flags["mmproj"] = f"\n--mmproj = '{file}'"
+                flags["mmproj"] = f"\n--mmproj = {serialized_file}"
                 files.remove(file)
 
             elif "mtp" in file_lower:
-                flags["draft"] = f"\n--model-draft = '{file}'"
+                flags["draft"] = f"\n--model-draft = {serialized_file}"
                 flags["spec-type"] = '\n--spec-type = "ngram-mod,draft-mtp"'
                 files.remove(file)
 
             elif "dflash" in file_lower:
-                flags["draft"] = f"\n--model-draft = '{file}'"
+                flags["draft"] = f"\n--model-draft = {serialized_file}"
                 flags["spec-type"] = '\n--spec-type = "ngram-mod,draft-dflash"'
                 files.remove(file)
 
         # If exactly one unclassified file remains, assume it is the main model. Otherwise use a placeholder
-        flags["model"] = f"\n--model = '{files[0]}'" if len(files) == 1 else "\n--model = 'DEFINE_MODEL_PATH'"
+        flags["model"] = (
+            f"\n--model = {self._toml_string(files[0])}" if len(files) == 1 else "\n--model = 'DEFINE_MODEL_PATH'"
+        )
 
         toml = textwrap.dedent(
             """
@@ -513,6 +516,20 @@ class Loader:
             raise ValueError(f"Multiple model configurations found for {name!r}")
 
         return matches[0] if matches else None
+
+    @staticmethod
+    def _toml_string(value: str) -> str:
+        escaped = (
+            value.replace("\\", "\\\\")
+            .replace('"', '\\"')
+            .replace("\b", "\\b")
+            .replace("\t", "\\t")
+            .replace("\n", "\\n")
+            .replace("\f", "\\f")
+            .replace("\r", "\\r")
+        )
+
+        return f'"{escaped}"'
 
 
 def main() -> None:
