@@ -226,7 +226,7 @@ def test_model_file_must_exist(tmp_path):
         create_model(tmp_path, model_data)
 
 
-def test_require_address_returns_valid_address(tmp_path):
+def test_model_require_address_returns_valid_address(tmp_path):
     model = create_model(tmp_path)
 
     host, port = model.require_address()
@@ -235,7 +235,7 @@ def test_require_address_returns_valid_address(tmp_path):
     assert port == 9931
 
 
-def test_require_address_accepts_numeric_string_port(tmp_path):
+def test_model_require_address_accepts_numeric_string_port(tmp_path):
     model = create_model(tmp_path)
     model.arguments["--port"] = "8080"
 
@@ -245,7 +245,7 @@ def test_require_address_accepts_numeric_string_port(tmp_path):
     assert port == 8080
 
 
-def test_require_address_host_must_be_string(tmp_path):
+def test_model_require_address_host_must_be_string(tmp_path):
     model = create_model(tmp_path)
     model.arguments["--host"] = 123
 
@@ -253,7 +253,7 @@ def test_require_address_host_must_be_string(tmp_path):
         model.require_address()
 
 
-def test_require_address_host_cannot_be_whitespace(tmp_path):
+def test_model_require_address_host_cannot_be_whitespace(tmp_path):
     model = create_model(tmp_path)
     model.arguments["--host"] = "   "
 
@@ -261,7 +261,7 @@ def test_require_address_host_cannot_be_whitespace(tmp_path):
         model.require_address()
 
 
-def test_require_address_rejects_non_numeric_string_port(tmp_path):
+def test_model_require_address_rejects_non_numeric_string_port(tmp_path):
     model = create_model(tmp_path)
     model.arguments["--port"] = "batata"
 
@@ -269,7 +269,7 @@ def test_require_address_rejects_non_numeric_string_port(tmp_path):
         model.require_address()
 
 
-def test_require_address_rejects_port_type(tmp_path):
+def test_model_require_address_rejects_port_type(tmp_path):
     model = create_model(tmp_path)
     model.arguments["--port"] = True
 
@@ -277,7 +277,7 @@ def test_require_address_rejects_port_type(tmp_path):
         model.require_address()
 
 
-def test_require_address_rejects_port_outside_valid_range(tmp_path):
+def test_model_require_address_rejects_port_outside_valid_range(tmp_path):
     model = create_model(tmp_path)
 
     model.arguments["--port"] = 0
@@ -291,7 +291,7 @@ def test_require_address_rejects_port_outside_valid_range(tmp_path):
         model.require_address()
 
 
-def test_build_arguments_merges_layers_in_priority_order(tmp_path):
+def test_model_build_arguments_merges_layers_in_priority_order(tmp_path):
     shared_file = tmp_path / "shared.gguf"
     shared_file.touch()
 
@@ -318,7 +318,7 @@ def test_build_arguments_merges_layers_in_priority_order(tmp_path):
     assert arguments["--model"] == tmp_path / "model.gguf"
 
 
-def test_build_arguments_does_not_modify_model_arguments(tmp_path):
+def test_model_build_arguments_does_not_modify_model_arguments(tmp_path):
     model = create_model(tmp_path)
     original_arguments = model.arguments.copy()
 
@@ -330,7 +330,7 @@ def test_build_arguments_does_not_modify_model_arguments(tmp_path):
     assert model.arguments["--host"] == "127.0.0.1"
 
 
-def test_build_command_returns_expected_command(tmp_path):
+def test_model_build_command_returns_expected_command(tmp_path):
     model = create_model(tmp_path)
 
     model.arguments = {

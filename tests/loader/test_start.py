@@ -125,14 +125,17 @@ def test_start_opens_browser_with_selected_mode(
     browser_path = Path("browser.exe")
     browser_address = ("127.0.0.1", 9931)
 
+    configs_mock = MagicMock()
+    configs_mock.browser_path = browser_path
+
     load_model_mock = MagicMock(return_value=selected_model)
-    require_browser_mock = MagicMock(return_value=browser_path)
     require_address_mock = MagicMock(return_value=browser_address)
     open_browser_mock = MagicMock()
     run_server_mock = MagicMock()
 
+    monkeypatch.setattr(loader, "_configs", configs_mock)
+
     monkeypatch.setattr(loader, "_load_model", load_model_mock)
-    monkeypatch.setattr(loader.configs, "require_browser", require_browser_mock)
     monkeypatch.setattr(selected_model, "require_address", require_address_mock)
     monkeypatch.setattr(loader, "_open_browser", open_browser_mock)
     monkeypatch.setattr(loader, "_run_server", run_server_mock)

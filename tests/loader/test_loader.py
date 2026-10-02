@@ -1,11 +1,12 @@
 import os
 import tomllib
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, call
 
 import pytest
 
-from llama_loader import loader as loader_module
+import llama_loader.loader as loader_module
 from llama_loader.loader import Loader
 
 from .helpers import Helper
@@ -289,3 +290,49 @@ def test_load_models_rejects_reserved_model_name(tmp_path: Path, monkeypatch: py
 
     with pytest.raises(ValueError, match=f"Model name {name!r} is reserved"):
         _ = loader.models
+
+
+def test_settings_dir_uses_environment_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    settings_dir = tmp_path / "settings"
+
+    monkeypatch.setenv("LLAMA_LOADER_SETTINGS_DIR", str(settings_dir))
+
+    assert Loader._settings_dir() == settings_dir
+
+
+@pytest.mark.parametrize(
+    ("os_name", "platform", "expected"),
+    [
+        pytest.param(
+            "nt",
+            "win32",
+            Path.home() / "AppData" / "Local" / "llama loader",
+            id="windows",
+        ),
+        pytest.param(
+            "posix",
+            "darwin",
+            Path.home() / "Library" / "Application Support" / "llama loader",
+            id="macos",
+        ),
+        pytest.param(
+            "posix",
+            "linux",
+            Path.home() / ".config" / "llama loader",
+            id="linux",
+        ),
+    ],
+)
+def test_settings_dir_uses_platform_default(monkeypatch: pytest.MonkeyPatch, os_name: str, platform: str, expected: Path):
+    monkeypatch.setattr(
+        loader_module,
+        "os",
+        SimpleNamespace(name=os_name, environ={}),
+    )
+    monkeypatch.setattr(
+        loader_module.sys,
+        "platform",
+        platform
+    )
+
+    assert Loader._settings_dir() == expected

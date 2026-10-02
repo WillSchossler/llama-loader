@@ -69,23 +69,6 @@ def test_configs_allows_missing_browser_path(tmp_path):
     assert configs.browser_path is None
 
 
-def test_require_browser_returns_browser_path(tmp_path):
-    configs_path, _, browser_path = create_configs_file(tmp_path)
-
-    configs = Configs(configs_path)
-
-    assert configs.require_browser() == browser_path
-
-
-def test_require_browser_raises_when_browser_is_not_configured(tmp_path):
-    configs_path, _, _ = create_configs_file(tmp_path, include_browser=False)
-
-    configs = Configs(configs_path)
-
-    with pytest.raises(ValueError, match="Browser is not configured"):
-        configs.require_browser()
-
-
 def test_configs_raises_for_non_string_value(tmp_path):
     models_path = tmp_path / "model"
     models_path.mkdir()

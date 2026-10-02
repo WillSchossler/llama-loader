@@ -1,9 +1,5 @@
-
-# example
-
-
 # A name used to identify the model. Must be unique.
-name = "example"
+name = "qwen"
 
 # Default profile for the model. Pick one table from "profiles.toml".
 # The flags from your chosen profile will overwrite the default ones.

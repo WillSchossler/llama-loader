@@ -56,9 +56,7 @@ def test_roll_profiles_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cap
 
 
 def test_roll_profiles_only_ignores_invalid_existing_models(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ):
     helper = Helper(tmp_path, monkeypatch)
     args = helper.create_cli_args(["list", "-p"])

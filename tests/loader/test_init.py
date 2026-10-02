@@ -162,10 +162,7 @@ def test_init_command_does_not_require_configs_or_profiles(tmp_path: Path, monke
     assert model_toml["files"]["--model"] == "model.gguf"
 
 
-def test_init_generates_valid_toml_for_special_filename(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-):
+def test_init_generates_valid_toml_for_special_filename(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     helper = Helper(tmp_path, monkeypatch)
     args = helper.create_cli_args(["init"])
     qwen = helper.create_model()

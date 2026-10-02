@@ -171,10 +171,7 @@ def test_edit_model_ignores_invalid_other_models(tmp_path: Path, monkeypatch: py
     popen_mock.assert_called_once_with([helper.editor, qwen["model_file"]])
 
 
-def test_edit_opens_malformed_profiles_for_repair(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-):
+def test_edit_opens_malformed_profiles_for_repair(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     helper = Helper(tmp_path, monkeypatch)
     args = helper.create_cli_args(["edit", "profiles"])
 
@@ -190,10 +187,7 @@ def test_edit_opens_malformed_profiles_for_repair(
     popen_mock.assert_called_once_with([helper.editor, helper.profiles_path])
 
 
-def test_edit_opens_malformed_configs_for_repair(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-):
+def test_edit_opens_malformed_configs_for_repair(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     helper = Helper(tmp_path, monkeypatch)
     args = helper.create_cli_args(["edit", "configs"])
 

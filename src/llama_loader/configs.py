@@ -20,10 +20,6 @@ class Configs:
         root: Validated directory where llama-loader searches for model configurations.
         editor: Validated command used to open the configured editor.
         browser_path: Validated path to the browser executable, or None if not configured.
-
-    Methods:
-        require_browser: Return the configured browser path or raise an error if
-            no browser is configured.
     """
 
     def __init__(self, configs_path: Path) -> None:
@@ -126,23 +122,6 @@ class Configs:
             self._browser_loaded = True
 
         return self._browser_path
-
-    def require_browser(self) -> Path:
-        """
-        Return the configured browser executable path.
-
-        Returns:
-            Validated browser executable path.
-
-        Raises:
-            ValueError: If no browser is configured or the configured path is invalid.
-        """
-        browser_path = self.browser_path
-
-        if browser_path is None:
-            raise ValueError("Browser is not configured")
-
-        return browser_path
 
     def __load_data(self) -> dict[str, object]:
         """

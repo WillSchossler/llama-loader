@@ -43,7 +43,7 @@ class Loader:
         run: Dispatch the command selected through the CLI.
     """
 
-    SETTINGS_DIR = Path(__file__).parents[2].resolve() / "settings"
+    SETTINGS_DIR = Path.home() / "AppData" / "Local" / "llama loader" / "settings"
     RESERVED_MODEL_NAMES = frozenset({"configs", "profiles"})
 
     def __init__(self, args: Namespace) -> None:
@@ -192,7 +192,7 @@ class Loader:
             selected_model.arguments.update(overrides)
 
         if open_browser or incognito:
-            browser_path = self.configs.require_browser()
+            browser_path = self.configs.browser_path
             browser_host, browser_port = selected_model.require_address()
             self._open_browser(browser_path, browser_host, browser_port, incognito)
 
@@ -539,6 +539,21 @@ class Loader:
         )
 
         return f'"{escaped}"'
+
+    @staticmethod
+    def _settings_dir() -> Path:
+        custom_dir = os.environ.get("LLAMA_LOADER_SETTINGS_DIR")
+
+        if custom_dir:
+            return Path(custom_dir).expanduser().resolve()
+
+        if os.name == "nt":
+            return Path.home() / "AppData" / "Local" / "llama loader"
+
+        if sys.platform == "darwin":
+            return Path.home() / "Library" / "Application Support" / "llama loader"
+
+        return Path.home() / ".config" / "llama loader"
 
 
 def main() -> None:
