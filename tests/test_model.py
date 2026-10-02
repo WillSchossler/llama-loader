@@ -1,3 +1,4 @@
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -370,3 +371,45 @@ def test_model_parameters_do_not_mutate_source_data(tmp_path):
     model.parameters["--temp"] = 999
 
     assert model_data["parameters"]["--temp"] == 0.7
+
+
+@pytest.mark.parametrize(
+    ("toml_value", "type_name"),
+    [
+        pytest.param("true", "bool", id="bool"),
+        pytest.param("[4, 8]", "list", id="list"),
+        pytest.param("{ threads = 8 }", "dict", id="dict"),
+    ],
+)
+def test_model_rejects_unsupported_parameter_value_types(tmp_path: Path, toml_value: str, type_name: str):
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+
+    model_path = model_dir / "model.gguf"
+    model_path.touch()
+
+    model_toml = model_dir / "model.toml"
+    model_toml.write_text(
+        f"""
+        name = "qwen"
+        profile = "default"
+
+        [files]
+        --model = "model.gguf"
+
+        [parameters]
+        --threads = {toml_value}
+        """,
+        encoding="utf-8",
+    )
+
+    toml_file = tomllib.load(model_toml.open("rb"))
+    profiles = create_profiles(tmp_path)
+
+    with pytest.raises(TypeError, match=f"is filled with an invalid field type: {type_name}"):
+        Model(
+            model=toml_file,
+            path=model_toml,
+            parent=model_dir,
+            profiles=profiles,
+        )

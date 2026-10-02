@@ -188,7 +188,7 @@ def test_profiles_returned_item_does_not_mutate_internal_data(tmp_path):
     [
         pytest.param("true", "bool", id="bool"),
         pytest.param("[4, 8]", "list", id="list"),
-        pytest.param('{ threads = 8 }', "dict", id="dict"),
+        pytest.param("{ threads = 8 }", "dict", id="dict"),
     ],
 )
 def test_profiles_rejects_unsupported_parameter_value_types(tmp_path: Path, toml_value: str, type_name: str):

@@ -192,12 +192,16 @@ class Model:
                 f"Field 'parameters' must be a dictionary. Got {parameters!r} ({type(parameters).__name__})"
             )
 
-        for parameter in parameters:
+        for parameter, value in parameters.items():
             if not isinstance(parameter, str):
                 raise TypeError(f"Parameter must be a string. Got {parameter!r} ({type(parameter).__name__})")
 
             if not parameter.startswith("-"):
                 raise ValueError(f"Parameter '{parameter}' is not a valid llama.cpp flag")
+
+            value_type = type(value)
+            if value_type not in (str, int, float):
+                raise TypeError(f'Parameter "{parameter}" is filled with an invalid field type: {value_type.__name__}')
 
         files = model["files"]
 
