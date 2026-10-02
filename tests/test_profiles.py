@@ -168,17 +168,6 @@ def test_profiles_raises_when_port_is_not_integer(tmp_path):
         create_profiles(tmp_path, toml)
 
 
-def test_profiles_raises_when_port_is_boolean(tmp_path):
-    toml = """
-    [default]
-    --host = "127.0.0.1"
-    --port = true
-    """
-
-    with pytest.raises(TypeError, match="Default '--port' must be an integer. Got True"):
-        create_profiles(tmp_path, toml)
-
-
 def test_profiles_returned_item_does_not_mutate_internal_data(tmp_path):
     toml = """
     [default]
@@ -192,3 +181,28 @@ def test_profiles_returned_item_does_not_mutate_internal_data(tmp_path):
     default_profile["--port"] = 1234
 
     assert profiles["default"]["--port"] == 9931
+
+
+@pytest.mark.parametrize(
+    ("toml_value", "type_name"),
+    [
+        pytest.param("true", "bool", id="bool"),
+        pytest.param("[4, 8]", "list", id="list"),
+        pytest.param('{ threads = 8 }', "dict", id="dict"),
+    ],
+)
+def test_profiles_rejects_unsupported_parameter_value_types(tmp_path: Path, toml_value: str, type_name: str):
+    profiles_path = tmp_path / "profiles.toml"
+
+    profiles_path.write_text(
+        f"""
+        [default]
+        --host = "127.0.0.1"
+        --port = 8080
+        --threads = {toml_value}
+        """,
+        encoding="utf-8",
+    )
+
+    with pytest.raises(TypeError, match=f"is filled with an invalid field type: {type_name}"):
+        Profiles(profiles_path)

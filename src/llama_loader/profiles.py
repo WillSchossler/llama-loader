@@ -61,9 +61,15 @@ class Profiles:
             if not isinstance(flags, dict):
                 raise TypeError(f"Profile '{profile}' must be a table")
 
-            for flag in flags:
+            for (flag, value) in flags.items():
                 if not flag.startswith("-"):
                     raise ValueError(f"'{flag}' from profile '{profile}' must start with '-'")
+
+                value_type = type(value)
+                if value_type not in (str, int, float):
+                    raise TypeError(f'Flag "{flag}" is filled with an invalid field type: {value_type.__name__}')
+
+
 
         default = data["default"]
         missing = {"--host", "--port"} - default.keys()
