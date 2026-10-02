@@ -94,6 +94,7 @@ class Loader:
                 with toml_path.open("rb") as file:
                     model_toml = tomllib.load(file)
             except tomllib.TOMLDecodeError:
+                # A broken TOML file should not stop the runtime, only be ignored
                 print(f"Broken TOML file located at '{toml_path}'")
                 continue
 
