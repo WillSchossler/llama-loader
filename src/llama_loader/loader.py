@@ -90,8 +90,11 @@ class Loader:
         models: dict[str, Model] = {}
 
         for toml_path in self.configs.root.rglob("*.toml"):
-            with toml_path.open("rb") as file:
-                model_toml = tomllib.load(file)
+            try:
+                with toml_path.open("rb") as file:
+                    model_toml = tomllib.load(file)
+            except tomllib.TOMLDecodeError:
+                print(f"Broken TOML file located at: {toml_path}")
 
             if not Model.REQUIRED_MODEL_FIELDS <= model_toml.keys():
                 continue
