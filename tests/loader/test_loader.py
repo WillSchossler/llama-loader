@@ -306,33 +306,31 @@ def test_settings_dir_uses_environment_override(tmp_path: Path, monkeypatch: pyt
         pytest.param(
             "nt",
             "win32",
-            Path.home() / "AppData" / "Local" / "llama loader",
+            Path.home() / "AppData" / "Local" / "llama loader" / "settings",
             id="windows",
         ),
         pytest.param(
             "posix",
             "darwin",
-            Path.home() / "Library" / "Application Support" / "llama loader",
+            Path.home() / "Library" / "Application Support" / "llama loader" / "settings",
             id="macos",
         ),
         pytest.param(
             "posix",
             "linux",
-            Path.home() / ".config" / "llama loader",
+            Path.home() / ".config" / "llama loader" / "settings",
             id="linux",
         ),
     ],
 )
-def test_settings_dir_uses_platform_default(monkeypatch: pytest.MonkeyPatch, os_name: str, platform: str, expected: Path):
+def test_settings_dir_uses_platform_default(
+    monkeypatch: pytest.MonkeyPatch, os_name: str, platform: str, expected: Path
+):
     monkeypatch.setattr(
         loader_module,
         "os",
         SimpleNamespace(name=os_name, environ={}),
     )
-    monkeypatch.setattr(
-        loader_module.sys,
-        "platform",
-        platform
-    )
+    monkeypatch.setattr(loader_module.sys, "platform", platform)
 
     assert Loader._settings_dir() == expected

@@ -4,7 +4,6 @@ from pathlib import Path
 import pytest
 
 from llama_loader.cli import CLI
-from llama_loader.loader import Loader
 
 
 class Helper:
@@ -17,7 +16,7 @@ class Helper:
         self.models_dir.mkdir()
 
         # We need Loader's "SETTINGS_DIR" to point to our own temporary "settings_dir" folder for the tests
-        monkeypatch.setattr(Loader, "SETTINGS_DIR", self.settings_dir)
+        monkeypatch.setenv("LLAMA_LOADER_SETTINGS_DIR", str(self.settings_dir))
 
         self.create_configs()
         self.create_profiles()

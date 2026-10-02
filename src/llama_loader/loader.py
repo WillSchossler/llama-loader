@@ -43,11 +43,11 @@ class Loader:
         run: Dispatch the command selected through the CLI.
     """
 
-    SETTINGS_DIR = Path.home() / "AppData" / "Local" / "llama loader" / "settings"
     RESERVED_MODEL_NAMES = frozenset({"configs", "profiles"})
 
-    def __init__(self, args: Namespace) -> None:
+    def __init__(self, args: Namespace, settings_dir: Path | None = None) -> None:
         self.args = args
+        self.settings_dir = settings_dir if settings_dir is not None else self._settings_dir()
 
         self._configs: Configs | None = None
         self._profiles: Profiles | None = None
@@ -56,13 +56,13 @@ class Loader:
     @property
     def configs(self) -> Configs:
         if self._configs is None:
-            self._configs = Configs(self.SETTINGS_DIR / "configs.toml")
+            self._configs = Configs(self.settings_dir / "configs.toml")
         return self._configs
 
     @property
     def profiles(self) -> Profiles:
         if self._profiles is None:
-            self._profiles = Profiles(self.SETTINGS_DIR / "profiles.toml")
+            self._profiles = Profiles(self.settings_dir / "profiles.toml")
         return self._profiles
 
     @property
@@ -193,6 +193,8 @@ class Loader:
 
         if open_browser or incognito:
             browser_path = self.configs.browser_path
+            assert browser_path is not None
+
             browser_host, browser_port = selected_model.require_address()
             self._open_browser(browser_path, browser_host, browser_port, incognito)
 
@@ -339,7 +341,7 @@ class Loader:
         """
 
         if name in ("configs", "profiles"):
-            path = self.SETTINGS_DIR / f"{name}.toml"
+            path = self.settings_dir / f"{name}.toml"
         else:
             path = self._find_model_path(name, self.configs.root)
 
@@ -548,12 +550,12 @@ class Loader:
             return Path(custom_dir).expanduser().resolve()
 
         if os.name == "nt":
-            return Path.home() / "AppData" / "Local" / "llama loader"
+            return Path.home() / "AppData" / "Local" / "llama loader" / "settings"
 
         if sys.platform == "darwin":
-            return Path.home() / "Library" / "Application Support" / "llama loader"
+            return Path.home() / "Library" / "Application Support" / "llama loader" / "settings"
 
-        return Path.home() / ".config" / "llama loader"
+        return Path.home() / ".config" / "llama loader" / "settings"
 
 
 def main() -> None:
