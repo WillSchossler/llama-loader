@@ -239,3 +239,23 @@ def test_configs_raises_for_invalid_editor_type(tmp_path: Path):
 
     with pytest.raises(TypeError, match="Field 'editor' must be a string"):
         _ = configs.editor
+
+
+def test_configs_root_rejects_relative_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    models_dir = tmp_path / "models"
+    models_dir.mkdir()
+
+    monkeypatch.chdir(tmp_path)
+
+    configs_path = tmp_path / "configs.toml"
+    configs_path.write_text(
+        """
+        root = "models"
+        """,
+        encoding="utf-8",
+    )
+
+    configs = Configs(configs_path)
+
+    with pytest.raises(ValueError, match="Field 'root_path' must be an absolute path"):
+        _ = configs.root

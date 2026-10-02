@@ -56,7 +56,10 @@ class Configs:
 
             assert value is not None
 
-            path = Path(value)
+            path = Path(value).expanduser()
+
+            if not path.is_absolute():
+                raise ValueError("Field 'root_path' must be an absolute path")
 
             if not path.is_dir():
                 raise ValueError(f"Field 'root' must point to an existing directory. Got {value!r}")
