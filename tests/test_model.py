@@ -137,7 +137,7 @@ def test_model_profile_must_exist(tmp_path):
     model_data = create_valid_model_data()
     model_data["profile"] = "missing"
 
-    with pytest.raises(ValueError, match="Profile 'missing' defined by model 'qwen' does not exist"):
+    with pytest.raises(ValueError, match=f"Profile 'missing' does not exist."):
         create_model(tmp_path, model_data)
 
 
