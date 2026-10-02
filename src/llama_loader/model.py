@@ -183,7 +183,7 @@ class Model:
             raise ValueError("Field 'profile' cannot be empty")
 
         if profile not in profiles:
-            raise ValueError(f"Profile '{profile}' defined by model '{name}' does not exist")
+            raise ValueError(f"Model '{name}' at '{self.path}': Profile '{profile}' does not exist.")
 
         parameters = model["parameters"]
 
