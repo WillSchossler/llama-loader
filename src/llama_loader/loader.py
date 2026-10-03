@@ -93,9 +93,9 @@ class Loader:
             try:
                 with toml_path.open("rb") as file:
                     model_toml = tomllib.load(file)
-            except tomllib.TOMLDecodeError:
-                # A broken TOML file should not stop the runtime, only be ignored
-                print(f"Broken TOML file located at '{toml_path}'")
+            except tomllib.TOMLDecodeError as exc:
+                # A malformed TOML cannot be identified as a model, so discovery skips it
+                print(f"Malformed TOML file at '{toml_path}': {exc}", file=sys.stderr)
                 continue
 
             if not Model.REQUIRED_MODEL_FIELDS <= model_toml.keys():

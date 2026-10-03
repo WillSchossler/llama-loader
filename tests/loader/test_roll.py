@@ -71,3 +71,28 @@ def test_roll_profiles_only_ignores_invalid_existing_models(
 
     assert "balanced" in output
     assert "default" not in output
+
+
+def test_roll_ignores_malformed_toml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]):
+    helper = Helper(tmp_path, monkeypatch)
+    args = helper.create_cli_args(["list", "-m"])
+
+    helper.create_model(name="qwen")
+
+    malformed_toml = helper.models_dir / "broken.toml"
+    malformed_toml.write_text(
+        """
+        name = "broken"
+        @@@ invalid toml @@@
+        """,
+        encoding="utf-8",
+    )
+
+    loader = Loader(args)
+    loader.roll(models_only=True, profiles_only=False)
+
+    captured = capsys.readouterr()
+
+    assert "qwen" in captured.out
+    assert str(malformed_toml) in captured.err
+    assert "Malformed TOML" in captured.err
