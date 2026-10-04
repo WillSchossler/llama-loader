@@ -57,9 +57,9 @@ def create_model(tmp_path: Path, model_data: dict | None = None) -> Model:
         model_data = create_valid_model_data()
 
     return Model(
-        model=model_data,
-        path=tmp_path / "qwen.toml",
-        parent=tmp_path,
+        model_data=model_data,
+        model_path=tmp_path / "qwen.toml",
+        model_dir=tmp_path,
         profiles=profiles,
     )
 
@@ -76,19 +76,19 @@ def test_model_valid_configuration(tmp_path):
     assert model.files == {
         "--model": tmp_path / "model.gguf",
     }
-    assert model.path == tmp_path / "qwen.toml"
-    assert model.parent == tmp_path
+    assert model.model_path == tmp_path / "qwen.toml"
+    assert model.model_dir == tmp_path
 
 
 def test_model_configuration_must_be_dictionary(tmp_path):
     profiles = create_profiles(tmp_path)
     invalid_model: Any = "not a dictionary"
 
-    with pytest.raises(TypeError, match="Model configuration must be a dictionary"):
+    with pytest.raises(TypeError, match="Model data must be a dictionary"):
         Model(
-            model=invalid_model,
-            path=tmp_path / "qwen.toml",
-            parent=tmp_path,
+            model_data=invalid_model,
+            model_path=tmp_path / "qwen.toml",
+            model_dir=tmp_path,
             profiles=profiles,
         )
 
@@ -97,7 +97,7 @@ def test_model_requires_required_fields(tmp_path):
     model_data = create_valid_model_data()
     del model_data["name"]
 
-    with pytest.raises(ValueError, match="Missing required model fields: name"):
+    with pytest.raises(ValueError, match="Missing required fields: name"):
         create_model(tmp_path, model_data)
 
 
@@ -137,7 +137,7 @@ def test_model_profile_must_exist(tmp_path):
     model_data = create_valid_model_data()
     model_data["profile"] = "missing"
 
-    with pytest.raises(ValueError, match=f"Profile 'missing' does not exist."):
+    with pytest.raises(ValueError, match="Profile 'missing' does not exist."):
         create_model(tmp_path, model_data)
 
 
@@ -155,7 +155,7 @@ def test_model_parameter_name_must_be_string(tmp_path):
         123: "value",
     }
 
-    with pytest.raises(TypeError, match="Parameter must be a string"):
+    with pytest.raises(TypeError, match=f"Parameter '{123!r}' must be a string."):
         create_model(tmp_path, model_data)
 
 
@@ -408,8 +408,8 @@ def test_model_rejects_unsupported_parameter_value_types(tmp_path: Path, toml_va
 
     with pytest.raises(TypeError, match=f"is filled with an invalid field type: {type_name}"):
         Model(
-            model=toml_file,
-            path=model_toml,
-            parent=model_dir,
+            model_data=toml_file,
+            model_path=model_toml,
+            model_dir=model_dir,
             profiles=profiles,
         )

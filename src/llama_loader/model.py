@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 from .profiles import Profiles
 
@@ -34,21 +35,23 @@ class Model:
         build_command: Build the command used to start llama-server.
     """
 
-    REQUIRED_MODEL_FIELDS = frozenset({"name", "profile", "parameters", "files"})
+    REQUIRED_MODEL_FIELDS: frozenset[str] = frozenset({"name", "profile", "parameters", "files"})
 
-    def __init__(self, model: dict, path: Path, parent: Path, profiles: Profiles) -> None:
-        self.path = path
-        self.parent = parent
-        self.profiles = profiles
+    def __init__(self, model_data: dict[str, Any], model_path: Path, model_dir: Path, profiles: Profiles) -> None:
+        self.model_path: Path = model_path
+        self.model_dir: Path = model_dir
+        self.profiles: Profiles = profiles
 
-        self.__validate(model, parent, profiles)
+        self.__validate(model_data, model_path, model_dir, profiles)
 
-        self.name: str = model["name"]
-        self.profile: str = model["profile"]
-        self.parameters: dict[str, object] = model["parameters"].copy()
-        self.files: dict[str, Path] = {flag: parent / file_path for flag, file_path in model["files"].items()}
+        self.name: str = model_data["name"]
+        self.profile: str = model_data["profile"]
+        self.parameters: dict[str, Any] = model_data["parameters"].copy()
+        self.files: dict[str, Path] = {flag: model_dir / file_path for flag, file_path in model_data["files"].items()}
 
-        self.arguments: dict[str, object] = self.build_arguments(self.profiles[self.profile])
+        self.arguments: dict[str, Any] = self.build_arguments(selected_profile=self.profiles[self.profile])
+
+        self.model_context = f"Model '{self.model_path}' at '{self.model_dir}'"
 
     def require_address(self) -> tuple[str, int]:
         """
@@ -64,31 +67,31 @@ class Model:
             ValueError: If ``--host`` is empty or ``--port`` is not a valid port.
             TypeError: If ``--host`` is not a string or ``--port`` has an invalid type.
         """
-        host = self.arguments["--host"]
+        host: Any = self.arguments["--host"]
 
         if not isinstance(host, str):
-            raise TypeError(f"Flag '--host' must be a string. Got {host!r} ({type(host).__name__})")
+            raise TypeError(f"{self.model_context}:  Flag '--host' must be a string. Got {host!r} ({type(host).__name__}).")
 
         if not host.strip():
-            raise ValueError("Flag '--host' cannot be empty")
+            raise ValueError(f"{self.model_context}':  Flag '--host' cannot be empty.")
 
-        port = self.arguments["--port"]
+        port: Any = self.arguments["--port"]
 
         if isinstance(port, str):
             try:
                 port = int(port)
             except ValueError:
-                raise ValueError(f"Invalid port: {port!r}")
+                raise ValueError(f"{self.model_context}:  Invalid port '{port!r}'.")
 
         if type(port) is not int:
-            raise TypeError(f"Flag '--port' must be an integer. Got {port!r} ({type(port).__name__})")
+            raise TypeError(f"{self.model_context}: Flag '--port' must be an integer. Got {port!r} ({type(port).__name__}).")
 
         if not 1 <= port <= 65535:
-            raise ValueError(f"Port {port!r} must be between 1 and 65535")
+            raise ValueError(f"{self.model_context}: Port must be between 1 and 65535. Got {port!r}.")
 
         return host, port
 
-    def build_arguments(self, selected_profile: dict) -> dict[str, object]:
+    def build_arguments(self, selected_profile: dict[str, str | int | float]) -> dict[str, Any]:
         """
         Build the resolved llama.cpp arguments for a profile.
 
@@ -105,7 +108,7 @@ class Model:
         Returns:
             A new dictionary containing the resolved llama.cpp arguments.
         """
-        arguments: dict[str, object] = {}
+        arguments: dict[str, Any] = {}
 
         for layer in [
             self.profiles["default"],
@@ -127,17 +130,17 @@ class Model:
         Returns:
             Command-line tokens starting with ``llama-server``.
         """
-        command = ["llama-server"]
+        command: list[str] = ["llama-server"]
 
         for parameter, value in self.arguments.items():
             command.append(parameter)
 
             if value != "":
-                command.append(str(value))
+                command.append(str(object=value))
 
         return command
 
-    def __validate(self, model: dict, parent: Path, profiles: Profiles) -> None:
+    def __validate(self, model_data: dict[str, Any], model_path: Path, model_dir: Path, profiles: Profiles) -> None:
         """
         Validate a model configuration.
 
@@ -146,7 +149,7 @@ class Model:
         and that model file entries resolve to existing files.
 
         Args:
-            model: Parsed model configuration.
+            model_data: Parsed model configuration.
             parent: Directory used to resolve model file paths.
             profiles: Available validated profiles.
 
@@ -157,69 +160,73 @@ class Model:
             TypeError: If the model configuration or one of its required fields
                 has the wrong type.
         """
-        if not isinstance(model, dict):
-            raise TypeError(f"Model configuration must be a dictionary. Got {model!r} ({type(model).__name__})")
+        model_context: str = f"Model '{model_path}' at '{model_dir}'"
 
-        missing = self.REQUIRED_MODEL_FIELDS - model.keys()
+        if not isinstance(model_data, dict):
+            raise TypeError(
+                f"{model_context}: Model data must be a dictionary. Got {model_data!r} ({type(model_data).__name__})."
+            )
+
+        missing: frozenset[str] = self.REQUIRED_MODEL_FIELDS - model_data.keys()
 
         if missing:
-            missing_fields = ", ".join(sorted(missing))
-            raise ValueError(f"Missing required model fields: {missing_fields}")
+            missing_fields: str = ", ".join(sorted(missing))
+            raise ValueError(f"{model_context}: Missing required fields: {missing_fields}.")
 
-        name = model["name"]
+        model_path: Any = model_data["name"]
 
-        if not isinstance(name, str):
-            raise TypeError(f"Field 'name' must be a string. Got {name!r} ({type(name).__name__})")
+        if not isinstance(model_path, str):
+            raise TypeError(f"{model_context}: Field 'name' must be a string. Got {model_path!r} ({type(model_path).__name__}).")
 
-        if not name.strip():
-            raise ValueError("Field 'name' cannot be empty")
+        if not model_path.strip():
+            raise ValueError(f"{model_context}: Field 'name' cannot be empty.")
 
-        profile = model["profile"]
+        profile = model_data["profile"]
 
         if not isinstance(profile, str):
-            raise TypeError(f"Field 'profile' must be a string. Got {profile!r} ({type(profile).__name__})")
+            raise TypeError(f"{model_context}: Field 'profile' must be a string. Got {profile!r} ({type(profile).__name__}).")
 
         if not profile.strip():
-            raise ValueError("Field 'profile' cannot be empty")
+            raise ValueError(f"{model_context}: Field 'profile' cannot be empty.")
 
         if profile not in profiles:
-            raise ValueError(f"Model '{name}' at '{self.path}': Profile '{profile}' does not exist.")
+            raise ValueError(f"{model_context}: Profile '{profile}' does not exist.")
 
-        parameters = model["parameters"]
+        parameters: Any = model_data["parameters"]
 
         if not isinstance(parameters, dict):
             raise TypeError(
-                f"Field 'parameters' must be a dictionary. Got {parameters!r} ({type(parameters).__name__})"
+                f"{model_context}: Field 'parameters' must be a dictionary. Got {parameters!r} ({type(parameters).__name__})."
             )
 
         for parameter, value in parameters.items():
             if not isinstance(parameter, str):
-                raise TypeError(f"Parameter must be a string. Got {parameter!r} ({type(parameter).__name__})")
+                raise TypeError(f"{model_context}: Parameter '{parameter!r}' must be a string. Got '{type(parameter).__name__}'.")
 
             if not parameter.startswith("-"):
-                raise ValueError(f"Parameter '{parameter}' is not a valid llama.cpp flag")
+                raise ValueError(f"{model_context}: Parameter '{parameter}' is not a valid llama.cpp flag.")
 
             value_type = type(value)
             if value_type not in (str, int, float):
-                raise TypeError(f'Parameter "{parameter}" is filled with an invalid field type: {value_type.__name__}')
+                raise TypeError(f'Parameter "{parameter}" is filled with an invalid field type: {value_type.__name__}.')
 
-        files = model["files"]
+        files: Any = model_data["files"]
 
         if not isinstance(files, dict):
-            raise TypeError(f"Field 'files' must be a dictionary. Got {files!r} ({type(files).__name__})")
+            raise TypeError(f"{model_context}: Field 'files' must be a dictionary. Got {files!r} ({type(files).__name__}).")
 
         for flag, value in files.items():
             if not isinstance(flag, str):
-                raise TypeError(f"File flag must be a string. Got {flag!r} ({type(flag).__name__})")
+                raise TypeError(f"File flag must be a string. Got {flag!r} ({type(flag).__name__}).")
 
             if not flag.startswith("-"):
-                raise ValueError(f"File flag '{flag}' is not a valid llama.cpp flag")
+                raise ValueError(f"File flag '{flag}' is not a valid llama.cpp flag.")
 
             if not isinstance(value, str):
-                raise TypeError(f"File path for flag '{flag}' must be a string. Got {value!r} ({type(value).__name__})")
+                raise TypeError(f"File path for flag '{flag}' must be a string. Got {value!r} ({type(value).__name__}).")
 
             if not value.strip():
-                raise ValueError(f"File path for flag '{flag}' cannot be empty")
+                raise ValueError(f"File path for flag '{flag}' cannot be empty.")
 
-            if not (parent / value).is_file():
-                raise ValueError(f"Flag '{flag}' does not contain a valid file path: {value}")
+            if not (model_dir / value).is_file():
+                raise ValueError(f"Flag '{flag}' does not contain a valid file path: {value}.")

@@ -73,7 +73,9 @@ def test_roll_profiles_only_ignores_invalid_existing_models(
     assert "default" not in output
 
 
-def test_roll_ignores_malformed_toml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]):
+def test_roll_ignores_malformed_toml(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
     helper = Helper(tmp_path, monkeypatch)
     args = helper.create_cli_args(["list", "-m"])
 

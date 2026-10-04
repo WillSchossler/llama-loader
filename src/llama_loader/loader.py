@@ -5,6 +5,7 @@ import textwrap
 import tomllib
 from argparse import Namespace
 from pathlib import Path
+from typing import Any
 
 from .cli import CLI
 from .configs import Configs
@@ -91,17 +92,17 @@ class Loader:
 
         for toml_path in self.configs.root.rglob("*.toml"):
             try:
-                with toml_path.open("rb") as file:
-                    model_toml = tomllib.load(file)
+                with toml_path.open(mode="rb") as file:
+                    model_data: dict[str, Any] = tomllib.load(file)
             except tomllib.TOMLDecodeError as exc:
                 # A malformed TOML cannot be identified as a model, so discovery skips it
                 print(f"Malformed TOML file at '{toml_path}': {exc}", file=sys.stderr)
                 continue
 
-            if not Model.REQUIRED_MODEL_FIELDS <= model_toml.keys():
+            if not Model.REQUIRED_MODEL_FIELDS <= model_data.keys():
                 continue
 
-            model = Model(model_toml, toml_path, toml_path.parent, self.profiles)
+            model = Model(model_data, toml_path, toml_path.parent, self.profiles)
 
             if model.name in self.RESERVED_MODEL_NAMES:
                 raise ValueError(f"Model name {model.name!r} is reserved")
@@ -131,7 +132,7 @@ class Loader:
             raise ValueError(f"Invalid model at {str(path)!r}. The name {name!r} is already defined as a profile")
 
         with path.open("rb") as file:
-            model_toml = tomllib.load(file)
+            model_toml: dict[str, Any] = tomllib.load(file)
 
         return Model(model_toml, path, path.parent, self.profiles)
 
@@ -221,7 +222,7 @@ class Loader:
         def print_models(values) -> None:
             print("\nModels:")
             for model in values:
-                print(f"Name: {model.name:<15} || Profile: {model.profile:>10} || Path: {model.parent.resolve()!s:<70}")
+                print(f"Name: {model.name:<15} || Profile: {model.profile:>10} || Path: {model.model_dir.resolve()!s:<70}")
 
         def print_profiles(names) -> None:
             print("\nProfiles:")
