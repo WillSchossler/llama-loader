@@ -49,7 +49,9 @@ class Model:
         self.parameters: dict[str, str | int | float] = model_data["parameters"].copy()
         self.files: dict[str, Path] = {flag: model_dir / file_path for flag, file_path in model_data["files"].items()}
 
-        self.arguments: dict[str, str | int | float | Path] = self.build_arguments(selected_profile=self.profiles[self.profile])
+        self.arguments: dict[str, str | int | float | Path] = self.build_arguments(
+            selected_profile=self.profiles[self.profile]
+        )
 
         self.model_context = f"Model '{self.name}' at '{self.model_dir}'"
 
@@ -165,7 +167,7 @@ class Model:
                 has the wrong type.
         """
         model_context: str = f"Model configuration at '{model_path}'"
-        
+
         missing: frozenset[str] = self.REQUIRED_MODEL_FIELDS - model_data.keys()
 
         if missing:
@@ -175,9 +177,7 @@ class Model:
         name: Any = model_data["name"]
 
         if not isinstance(name, str):
-            raise TypeError(
-                f"{model_context}: Field 'name' must be a string. Got {name!r} ({type(name).__name__})."
-            )
+            raise TypeError(f"{model_context}: Field 'name' must be a string. Got {name!r} ({type(name).__name__}).")
 
         if not name.strip():
             raise ValueError(f"{model_context}: Field 'name' cannot be empty.")
