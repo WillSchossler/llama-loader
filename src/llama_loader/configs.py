@@ -2,6 +2,7 @@ import os
 import sys
 import tomllib
 from pathlib import Path
+from typing import Any
 
 
 class Configs:
@@ -26,7 +27,7 @@ class Configs:
         if not configs_path.is_file():
             raise FileNotFoundError(f"Configuration file does not exist: {configs_path}")
 
-        self.configs_path = configs_path
+        self.configs_path: Path = configs_path
 
         self._data: dict[str, object] | None = None
 
@@ -52,11 +53,11 @@ class Configs:
             TypeError: If the field is not a string.
         """
         if self._root is None:
-            value = self.__get_field("root")
+            value: str | None = self.__get_field("root")
 
             assert value is not None
 
-            path = Path(value).expanduser()
+            path: Path = Path(value).expanduser()
 
             if not path.is_absolute():
                 raise ValueError("Field 'root_path' must be an absolute path")
@@ -83,10 +84,10 @@ class Configs:
             TypeError: If the configured field is not a string.
         """
         if self._editor is None:
-            value = self.__get_field("editor", required=False)
+            value: str | None = self.__get_field(field="editor", required=False)
 
             if value is not None:
-                self._editor = value
+                self._editor: str = value
             elif os.name == "nt":
                 self._editor = "notepad"
             elif sys.platform == "darwin":
@@ -112,7 +113,7 @@ class Configs:
             TypeError: If the field is not a string.
         """
         if not self._browser_loaded:
-            value = self.__get_field("browser_path", required=False)
+            value: str | None = self.__get_field(field="browser_path", required=False)
 
             if value is not None:
                 path = Path(value)
@@ -120,7 +121,7 @@ class Configs:
                 if not path.is_file():
                     raise ValueError(f"Field 'browser_path' must point to an existing file. Got {value!r}")
 
-                self._browser_path = path
+                self._browser_path: Path = path
 
             self._browser_loaded = True
 
@@ -134,8 +135,8 @@ class Configs:
             Parsed configuration mapping.
         """
         if self._data is None:
-            with self.configs_path.open("rb") as file:
-                self._data = tomllib.load(file)
+            with self.configs_path.open(mode="rb") as file:
+                self._data: dict[str, Any] = tomllib.load(file)
 
         return self._data
 
@@ -154,7 +155,7 @@ class Configs:
             ValueError: If a required field is missing or the value is empty.
             TypeError: If the field value is not a string.
         """
-        data = self.__load_data()
+        data: dict[str, object] = self.__load_data()
 
         if field not in data:
             if required:
@@ -162,7 +163,7 @@ class Configs:
 
             return None
 
-        value = data[field]
+        value: object = data[field]
 
         if not isinstance(value, str):
             raise TypeError(f"Field '{field}' must be a string. Got {value!r} ({type(value).__name__})")

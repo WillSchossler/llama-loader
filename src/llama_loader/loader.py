@@ -255,9 +255,9 @@ class Loader:
         Raises:
             SystemExit: If the output configuration already exists.
         """
-        stem = cwd.name.replace(" ", "-")
-        model_name = "-".join(stem.split("-")[:2]).lower()
-        output = cwd / f"{stem}.toml"
+        stem: str = cwd.name.replace(" ", "-")
+        model_name: str = "-".join(stem.split("-")[:2]).lower()
+        output: Path = cwd / f"{stem}.toml"
 
         if output.exists():
             raise SystemExit(f"Error: {output.name!r} already exists")
