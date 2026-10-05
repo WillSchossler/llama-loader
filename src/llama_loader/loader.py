@@ -222,7 +222,9 @@ class Loader:
         def print_models(values) -> None:
             print("\nModels:")
             for model in values:
-                print(f"Name: {model.name:<15} || Profile: {model.profile:>10} || Path: {model.model_dir.resolve()!s:<70}")
+                print(
+                    f"Name: {model.name:<15} || Profile: {model.profile:>10} || Path: {model.model_dir.resolve()!s:<70}"
+                )
 
         def print_profiles(names) -> None:
             print("\nProfiles:")

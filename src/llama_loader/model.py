@@ -70,7 +70,9 @@ class Model:
         host: Any = self.arguments["--host"]
 
         if not isinstance(host, str):
-            raise TypeError(f"{self.model_context}:  Flag '--host' must be a string. Got {host!r} ({type(host).__name__}).")
+            raise TypeError(
+                f"{self.model_context}:  Flag '--host' must be a string. Got {host!r} ({type(host).__name__})."
+            )
 
         if not host.strip():
             raise ValueError(f"{self.model_context}':  Flag '--host' cannot be empty.")
@@ -84,7 +86,9 @@ class Model:
                 raise ValueError(f"{self.model_context}:  Invalid port '{port!r}'.")
 
         if type(port) is not int:
-            raise TypeError(f"{self.model_context}: Flag '--port' must be an integer. Got {port!r} ({type(port).__name__}).")
+            raise TypeError(
+                f"{self.model_context}: Flag '--port' must be an integer. Got {port!r} ({type(port).__name__})."
+            )
 
         if not 1 <= port <= 65535:
             raise ValueError(f"{self.model_context}: Port must be between 1 and 65535. Got {port!r}.")
@@ -176,15 +180,19 @@ class Model:
         model_path: Any = model_data["name"]
 
         if not isinstance(model_path, str):
-            raise TypeError(f"{model_context}: Field 'name' must be a string. Got {model_path!r} ({type(model_path).__name__}).")
+            raise TypeError(
+                f"{model_context}: Field 'name' must be a string. Got {model_path!r} ({type(model_path).__name__})."
+            )
 
         if not model_path.strip():
             raise ValueError(f"{model_context}: Field 'name' cannot be empty.")
 
-        profile = model_data["profile"]
+        profile: Any = model_data["profile"]
 
         if not isinstance(profile, str):
-            raise TypeError(f"{model_context}: Field 'profile' must be a string. Got {profile!r} ({type(profile).__name__}).")
+            raise TypeError(
+                f"{model_context}: Field 'profile' must be a string. Got {profile!r} ({type(profile).__name__})."
+            )
 
         if not profile.strip():
             raise ValueError(f"{model_context}: Field 'profile' cannot be empty.")
@@ -201,32 +209,40 @@ class Model:
 
         for parameter, value in parameters.items():
             if not isinstance(parameter, str):
-                raise TypeError(f"{model_context}: Parameter '{parameter!r}' must be a string. Got '{type(parameter).__name__}'.")
+                raise TypeError(
+                    f"{model_context}: Parameter '{parameter!r}' must be a string. Got '{type(parameter).__name__}'."
+                )
 
             if not parameter.startswith("-"):
                 raise ValueError(f"{model_context}: Parameter '{parameter}' is not a valid llama.cpp flag.")
 
-            value_type = type(value)
+            value_type: type[Any] = type(value)
             if value_type not in (str, int, float):
-                raise TypeError(f'Parameter "{parameter}" is filled with an invalid field type: {value_type.__name__}.')
+                raise TypeError(
+                    f"{model_context}: Parameter '{parameter}' is an invalid field type: {value_type.__name__}."
+                )
 
         files: Any = model_data["files"]
 
         if not isinstance(files, dict):
-            raise TypeError(f"{model_context}: Field 'files' must be a dictionary. Got {files!r} ({type(files).__name__}).")
+            raise TypeError(
+                f"{model_context}: Field 'files' must be a dictionary. Got {files!r} ({type(files).__name__})."
+            )
 
         for flag, value in files.items():
             if not isinstance(flag, str):
-                raise TypeError(f"File flag must be a string. Got {flag!r} ({type(flag).__name__}).")
+                raise TypeError(f"{model_context}: File flag must be a string. Got {flag!r} ({type(flag).__name__}).")
 
             if not flag.startswith("-"):
-                raise ValueError(f"File flag '{flag}' is not a valid llama.cpp flag.")
+                raise ValueError(f"{model_context}: File flag '{flag}' is not a valid llama.cpp flag.")
 
             if not isinstance(value, str):
-                raise TypeError(f"File path for flag '{flag}' must be a string. Got {value!r} ({type(value).__name__}).")
+                raise TypeError(
+                    f"{model_context}: File path for flag '{flag}' must be a string. Got {value!r} ({type(value).__name__})."
+                )
 
             if not value.strip():
-                raise ValueError(f"File path for flag '{flag}' cannot be empty.")
+                raise ValueError(f"{model_context}: File path for flag '{flag}' cannot be empty.")
 
             if not (model_dir / value).is_file():
-                raise ValueError(f"Flag '{flag}' does not contain a valid file path: {value}.")
+                raise ValueError(f"{model_context}: Flag '{flag}' does not contain a valid file path: {value}.")

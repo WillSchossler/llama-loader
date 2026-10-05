@@ -374,14 +374,14 @@ def test_model_parameters_do_not_mutate_source_data(tmp_path):
 
 
 @pytest.mark.parametrize(
-    ("toml_value", "type_name"),
+    ("toml_value"),
     [
-        pytest.param("true", "bool", id="bool"),
-        pytest.param("[4, 8]", "list", id="list"),
-        pytest.param("{ threads = 8 }", "dict", id="dict"),
+        pytest.param("true", id="bool"),
+        pytest.param("[4, 8]", id="list"),
+        pytest.param("{ threads = 8 }", id="dict"),
     ],
 )
-def test_model_rejects_unsupported_parameter_value_types(tmp_path: Path, toml_value: str, type_name: str):
+def test_model_rejects_unsupported_parameter_value_types(tmp_path: Path, toml_value: str):
     model_dir = tmp_path / "model"
     model_dir.mkdir()
 
@@ -406,7 +406,7 @@ def test_model_rejects_unsupported_parameter_value_types(tmp_path: Path, toml_va
     toml_file = tomllib.load(model_toml.open("rb"))
     profiles = create_profiles(tmp_path)
 
-    with pytest.raises(TypeError, match=f"is filled with an invalid field type: {type_name}"):
+    with pytest.raises(TypeError, match="Parameter '--threads' is an invalid field type"):
         Model(
             model_data=toml_file,
             model_path=model_toml,
