@@ -90,7 +90,7 @@ def test_loader_ignores_incomplete_model_toml(tmp_path: Path, monkeypatch: pytes
 
 
 def test_print_arguments_formats_values_and_bare_flags(capsys: pytest.CaptureFixture[str]):
-    arguments: dict[str, object] = {"--agent": "", "--fit": "on", "--port": 8080}
+    arguments: dict[str, str | float | Path] = {"--agent": "", "--fit": "on", "--port": 8080}
 
     Loader._print_arguments(arguments)
 

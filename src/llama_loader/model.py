@@ -46,12 +46,12 @@ class Model:
 
         self.name: str = model_data["name"]
         self.profile: str = model_data["profile"]
-        self.parameters: dict[str, Any] = model_data["parameters"].copy()
+        self.parameters: dict[str, str | int | float] = model_data["parameters"].copy()
         self.files: dict[str, Path] = {flag: model_dir / file_path for flag, file_path in model_data["files"].items()}
 
-        self.arguments: dict[str, Any] = self.build_arguments(selected_profile=self.profiles[self.profile])
+        self.arguments: dict[str, str | int | float | Path] = self.build_arguments(selected_profile=self.profiles[self.profile])
 
-        self.model_context = f"Model '{self.model_path}' at '{self.model_dir}'"
+        self.model_context = f"Model '{self.name}' at '{self.model_dir}'"
 
     def require_address(self) -> tuple[str, int]:
         """
@@ -71,11 +71,11 @@ class Model:
 
         if not isinstance(host, str):
             raise TypeError(
-                f"{self.model_context}:  Flag '--host' must be a string. Got {host!r} ({type(host).__name__})."
+                f"{self.model_context}: Flag '--host' must be a string. Got {host!r} ({type(host).__name__})."
             )
 
         if not host.strip():
-            raise ValueError(f"{self.model_context}':  Flag '--host' cannot be empty.")
+            raise ValueError(f"{self.model_context}: Flag '--host' cannot be empty.")
 
         port: Any = self.arguments["--port"]
 
@@ -83,7 +83,7 @@ class Model:
             try:
                 port = int(port)
             except ValueError:
-                raise ValueError(f"{self.model_context}:  Invalid port '{port!r}'.")
+                raise ValueError(f"{self.model_context}: Invalid port {port!r}.")
 
         if type(port) is not int:
             raise TypeError(
@@ -95,7 +95,7 @@ class Model:
 
         return host, port
 
-    def build_arguments(self, selected_profile: dict[str, str | int | float]) -> dict[str, Any]:
+    def build_arguments(self, selected_profile: dict[str, str | int | float]) -> dict[str, str | int | float | Path]:
         """
         Build the resolved llama.cpp arguments for a profile.
 
@@ -140,7 +140,7 @@ class Model:
             command.append(parameter)
 
             if value != "":
-                command.append(str(object=value))
+                command.append(str(value))
 
         return command
 
@@ -164,28 +164,25 @@ class Model:
             TypeError: If the model configuration or one of its required fields
                 has the wrong type.
         """
-        model_context: str = f"Model '{model_path}' at '{model_dir}'"
-
-        if not isinstance(model_data, dict):
-            raise TypeError(
-                f"{model_context}: Model data must be a dictionary. Got {model_data!r} ({type(model_data).__name__})."
-            )
-
+        model_context: str = f"Model configuration at '{model_path}'"
+        
         missing: frozenset[str] = self.REQUIRED_MODEL_FIELDS - model_data.keys()
 
         if missing:
             missing_fields: str = ", ".join(sorted(missing))
             raise ValueError(f"{model_context}: Missing required fields: {missing_fields}.")
 
-        model_path: Any = model_data["name"]
+        name: Any = model_data["name"]
 
-        if not isinstance(model_path, str):
+        if not isinstance(name, str):
             raise TypeError(
-                f"{model_context}: Field 'name' must be a string. Got {model_path!r} ({type(model_path).__name__})."
+                f"{model_context}: Field 'name' must be a string. Got {name!r} ({type(name).__name__})."
             )
 
-        if not model_path.strip():
+        if not name.strip():
             raise ValueError(f"{model_context}: Field 'name' cannot be empty.")
+
+        model_context = f"Model '{name}' at '{model_path}'"
 
         profile: Any = model_data["profile"]
 

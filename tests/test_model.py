@@ -1,6 +1,5 @@
 import tomllib
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -78,19 +77,6 @@ def test_model_valid_configuration(tmp_path):
     }
     assert model.model_path == tmp_path / "qwen.toml"
     assert model.model_dir == tmp_path
-
-
-def test_model_configuration_must_be_dictionary(tmp_path):
-    profiles = create_profiles(tmp_path)
-    invalid_model: Any = "not a dictionary"
-
-    with pytest.raises(TypeError, match="Model data must be a dictionary"):
-        Model(
-            model_data=invalid_model,
-            model_path=tmp_path / "qwen.toml",
-            model_dir=tmp_path,
-            profiles=profiles,
-        )
 
 
 def test_model_requires_required_fields(tmp_path):

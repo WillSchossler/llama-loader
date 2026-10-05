@@ -410,7 +410,7 @@ class Loader:
 
             selected_profile = self.profiles[profile]
 
-        arguments = selected_model.build_arguments(selected_profile)
+        arguments: dict[str, str | float | Path] = selected_model.build_arguments(selected_profile)
         self._print_arguments(arguments)
 
     def run(self) -> None:
@@ -502,7 +502,7 @@ class Loader:
         subprocess.Popen(command)
 
     @staticmethod
-    def _print_arguments(arguments: dict[str, object]) -> None:
+    def _print_arguments(arguments: dict[str, str | float | Path]) -> None:
         """
         Print a llama.cpp argument mapping in a human-readable form.
 
